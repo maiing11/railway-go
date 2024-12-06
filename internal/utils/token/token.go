@@ -5,11 +5,12 @@ import (
 	"time"
 
 	"github.com/aead/chacha20poly1305"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/o1egl/paseto"
 )
 
 type Maker interface {
-	CreateToken(email *string, role string, duration time.Duration) (string, *Payload, error)
+	CreateToken(userID *pgtype.UUID, role string, duration time.Duration) (string, *Payload, error)
 	VerifyToken(token string) (*Payload, error)
 }
 
@@ -31,28 +32,28 @@ func NewTokenManager(symmetricKey string) (Maker, error) {
 	return maker, nil
 }
 
-func (maker *PasetoMaker) CreateToken(email *string, role string, duration time.Duration) (string, *Payload, error){
-	payload, err := NewPayload(email, role, duration)
-	if err != nil{
+func (maker *PasetoMaker) CreateToken(userID *pgtype.UUID, role string, duration time.Duration) (string, *Payload, error) {
+	payload, err := NewPayload(userID, role, duration)
+	if err != nil {
 		return "", payload, err
 	}
-	
+
 	token, err := maker.paseto.Encrypt(maker.symmetricKey, payload, nil)
 	return token, payload, nil
 }
 
-func(maker *PasetoMaker) VerifyToken(token string) (*Payload, error){
+func (maker *PasetoMaker) VerifyToken(token string) (*Payload, error) {
 	payload := &Payload{}
-	
+
 	err := maker.paseto.Decrypt(token, maker.symmetricKey, payload, nil)
-	if err != nil{
+	if err != nil {
 		return nil, ErrInvalidToken
 	}
-	
+
 	err = payload.Valid()
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
-	
+
 	return payload, nil
 }
