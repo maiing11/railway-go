@@ -14,7 +14,7 @@ CREATE TABLE passengers (
   id bigserial PRIMARY KEY,
   name VARCHAR NOT NULL,
   id_number VARCHAR NOT NULL,
-  user_id uuid,
+  user_id uuid DEFAULT NULL,
   created_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id)
@@ -72,7 +72,7 @@ CREATE TABLE reservations (
 
 CREATE TABLE payments (
   id uuid PRIMARY KEY,
-  reservation_id bigint,
+  reservation_id uuid,
   payment_method text,
   amount bigint,
   transaction_id text,

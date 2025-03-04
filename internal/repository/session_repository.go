@@ -3,17 +3,17 @@ package repository
 import (
 	"context"
 	"encoding/json"
-	"railway-go/internal/constant/entity"
+	"railway-go/internal/constant/model"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 )
 
 type SessionRepository interface {
-	CreateSession(ctx context.Context, session *entity.Session) error
-	GetSessionByID(ctx context.Context, id string) (*entity.Session, error)
+	CreateSession(ctx context.Context, session *model.Session) error
+	GetSessionByID(ctx context.Context, id string) (*model.Session, error)
 	DeleteSession(ctx context.Context, id string) error
-	GetSessionByRefreshToken(ctx context.Context, refreshToken string) (*entity.Session, error)
+	GetSessionByRefreshToken(ctx context.Context, refreshToken string) (*model.Session, error)
 	UpdateSessionAccessToken(ctx context.Context, sessionID string, newAccessToken string, newExpiresAt time.Time) error
 }
 
@@ -25,7 +25,7 @@ func NewSessionRepository(redisClient *redis.Client) SessionRepository {
 	return &sessionRepository{RedisClient: redisClient}
 }
 
-func (r *sessionRepository) CreateSession(ctx context.Context, session *entity.Session) error {
+func (r *sessionRepository) CreateSession(ctx context.Context, session *model.Session) error {
 	sessionJson, err := json.Marshal(session)
 	if err != nil {
 		return err
@@ -34,12 +34,12 @@ func (r *sessionRepository) CreateSession(ctx context.Context, session *entity.S
 	return r.RedisClient.Set(ctx, session.ID, sessionJson, time.Until(session.ExpiresAt)).Err()
 }
 
-func (r *sessionRepository) GetSessionByID(ctx context.Context, id string) (*entity.Session, error) {
+func (r *sessionRepository) GetSessionByID(ctx context.Context, id string) (*model.Session, error) {
 	sessionData, err := r.RedisClient.Get(ctx, id).Result()
 	if err != nil {
 		return nil, err
 	}
-	var session entity.Session
+	var session model.Session
 	err = json.Unmarshal([]byte(sessionData), &session)
 	if err != nil {
 		return nil, err
@@ -51,16 +51,16 @@ func (r *sessionRepository) DeleteSession(ctx context.Context, id string) error 
 	return r.RedisClient.Del(ctx, id).Err()
 }
 
-func (r *sessionRepository) GetSessionByRefreshToken(ctx context.Context, refreshToken string) (*entity.Session, error) {
+func (r *sessionRepository) GetSessionByRefreshToken(ctx context.Context, refreshToken string) (*model.Session, error) {
 	sessionKey := "session:" + refreshToken
 	val, err := r.RedisClient.Get(ctx, sessionKey).Bytes()
 	if err == redis.Nil {
-		return nil, entity.ErrSessionNotFound
+		return nil, model.ErrSessionNotFound
 	} else if err != nil {
 		return nil, err
 	}
 
-	session := &entity.Session{}
+	session := &model.Session{}
 	if err := json.Unmarshal(val, session); err != nil {
 		return nil, err
 	}

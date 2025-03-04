@@ -32,7 +32,7 @@ tasks:
 
   sqlc:
     cmds:
-      - sqlc generate
+      - docker run --rm -v $(pwd):/src -w /src sqlc/sqlc generate
     silent: true
   createdb:
     cmds:

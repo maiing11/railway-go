@@ -2,15 +2,16 @@ package token
 
 import (
 	"fmt"
+	"railway-go/internal/constant/model"
 	"time"
 
 	"github.com/aead/chacha20poly1305"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/google/uuid"
 	"github.com/o1egl/paseto"
 )
 
 type Maker interface {
-	CreateToken(userID *pgtype.UUID, role string, duration time.Duration) (string, *Payload, error)
+	CreateToken(userID *uuid.UUID, sessionID, role string, duration time.Duration) (string, *Payload, error)
 	VerifyToken(token string) (*Payload, error)
 }
 
@@ -32,13 +33,16 @@ func NewTokenManager(symmetricKey string) (Maker, error) {
 	return maker, nil
 }
 
-func (maker *PasetoMaker) CreateToken(userID *pgtype.UUID, role string, duration time.Duration) (string, *Payload, error) {
-	payload, err := NewPayload(userID, role, duration)
+func (maker *PasetoMaker) CreateToken(userID *uuid.UUID, sessionID, role string, duration time.Duration) (string, *Payload, error) {
+	payload, err := NewPayload(userID, sessionID, role, duration)
 	if err != nil {
 		return "", payload, err
 	}
 
 	token, err := maker.paseto.Encrypt(maker.symmetricKey, payload, nil)
+	if err != nil {
+		return "", payload, err
+	}
 	return token, payload, nil
 }
 
@@ -47,7 +51,7 @@ func (maker *PasetoMaker) VerifyToken(token string) (*Payload, error) {
 
 	err := maker.paseto.Decrypt(token, maker.symmetricKey, payload, nil)
 	if err != nil {
-		return nil, ErrInvalidToken
+		return nil, model.ErrInvalidToken
 	}
 
 	err = payload.Valid()

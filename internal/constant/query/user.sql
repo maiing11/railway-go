@@ -8,9 +8,9 @@ ORDER BY name;
 
 -- name: CreateUser :exec
 INSERT INTO users (
-  name, email, password, phoneNumber
+ id, name, email, password, phoneNumber
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5
 ); 
 
 -- name: UpdateUser :exec

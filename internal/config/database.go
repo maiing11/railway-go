@@ -5,22 +5,24 @@ import (
 	"fmt"
 	"time"
 
+	// "time"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
-func newDatabase(v *viper.Viper, log *zap.Logger) (*pgxpool.Pool, error) {
+func NewDatabase(v *viper.Viper, log *zap.Logger) (*pgxpool.Pool, error) {
 	username := v.GetString("database.username")
 	password := v.GetString("database.password")
 	host := v.GetString("database.host")
 	port := v.GetInt("database.port")
 	database := v.GetString("database.name")
-	idleConnection := v.GetInt("database.pool.idle")
+	// idleConnection := v.GetInt("database.pool.idle")
 	maxConnection := v.GetInt("database.pool.max")
-	maxLifeTimeConnection := v.GetInt("database.pool.lifetime")
+	// maxLifeTimeConnection := v.GetInt("database.pool.lifetime")
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", username, password, host, port, database)
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable", username, password, host, port, database)
 
 	config, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
@@ -28,9 +30,12 @@ func newDatabase(v *viper.Viper, log *zap.Logger) (*pgxpool.Pool, error) {
 		return nil, err
 	}
 
-	config.MaxConnIdleTime = time.Duration(idleConnection)
+	// config.MaxConnIdleTime = time.Duration(idleConnection)
+	// if maxConnection < 1 {
+	// 	maxConnection = 1
+	// }
 	config.MaxConns = int32(maxConnection)
-	config.MaxConnLifetime = time.Duration(maxLifeTimeConnection)
+	// config.MaxConnLifetime = time.Duration(maxLifeTimeConnection)
 
 	db, err := pgxpool.NewWithConfig(context.Background(), config)
 	if err != nil {
@@ -38,5 +43,15 @@ func newDatabase(v *viper.Viper, log *zap.Logger) (*pgxpool.Pool, error) {
 		return nil, err
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err = db.Ping(ctx)
+	if err != nil {
+		log.Sugar().Fatalf("database ping failed: %v", err)
+		return nil, err
+	}
+
+	log.Info("connected to postgresql successfully")
 	return db, nil
 }
