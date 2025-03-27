@@ -12,42 +12,145 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const cancelReservation = `-- name: CancelReservation :exec
+UPDATE reservations
+SET status = 'cancelled', updated_at = NOW()
+WHERE id = $1 AND status = 'pending'
+`
+
+func (q *Queries) CancelReservation(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, cancelReservation, id)
+	return err
+}
+
+const checkSeatAvailability = `-- name: CheckSeatAvailability :one
+SELECT COUNT(*) FROM reservations r
+WHERE r.schedule_id = $1 AND r.wagon_id = $2 AND r.seat_id = $3
+AND (status = 'pending' or status = 'success')
+UNION ALL 
+SELECT COUNT(*) FROM seat_holds sh
+WHERE sh.schedule_id = $1 AND sh.wagon_id = $2 AND sh.seat_id = $3
+AND sh.expires_at > NOW()
+`
+
+type CheckSeatAvailabilityParams struct {
+	ScheduleID int64 `db:"schedule_id" json:"schedule_id"`
+	WagonID    int64 `db:"wagon_id" json:"wagon_id"`
+	SeatID     int64 `db:"seat_id" json:"seat_id"`
+}
+
+func (q *Queries) CheckSeatAvailability(ctx context.Context, arg CheckSeatAvailabilityParams) (int64, error) {
+	row := q.db.QueryRow(ctx, checkSeatAvailability, arg.ScheduleID, arg.WagonID, arg.SeatID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const cleanupExpiredHolds = `-- name: CleanupExpiredHolds :exec
+DELETE FROM seat_holds WHERE expires_at < NOW()
+`
+
+func (q *Queries) CleanupExpiredHolds(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, cleanupExpiredHolds)
+	return err
+}
+
+const confirmReservation = `-- name: ConfirmReservation :exec
+UPDATE reservations
+SET status = 'success', updated_at = NOW()
+WHERE id = $1 AND status = 'pending'
+`
+
+func (q *Queries) ConfirmReservation(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, confirmReservation, id)
+	return err
+}
+
 const createReservation = `-- name: CreateReservation :one
 INSERT INTO reservations (
-   passenger_id, schedule_id, seat_number, booking_date, payment_id, status
+   passenger_id, schedule_id, wagon_id, seat_id, booking_date, status, discount_id, expires_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
-)
-RETURNING id, passenger_id, schedule_id, seat_number, booking_date, payment_id, status, created_at, updated_at
+    $1, $2, $3, $4, NOW(), 'pending', $5, NOW() + INTERVAL '15 minutes'
+) RETURNING id, passenger_id, schedule_id, wagon_id, seat_id, booking_date, discount_id, status, expires_at, created_at, updated_at
 `
 
 type CreateReservationParams struct {
-	PassengerID int64                 `db:"passenger_id" json:"passenger_id"`
-	ScheduleID  int64                 `db:"schedule_id" json:"schedule_id"`
-	SeatNumber  *int32                `db:"seat_number" json:"seat_number"`
-	BookingDate pgtype.Timestamp      `db:"booking_date" json:"booking_date"`
-	PaymentID   uuid.UUID             `db:"payment_id" json:"payment_id"`
-	Status      NullStatusReservation `db:"status" json:"status"`
+	PassengerID uuid.UUID   `db:"passenger_id" json:"passenger_id"`
+	ScheduleID  int64       `db:"schedule_id" json:"schedule_id"`
+	WagonID     int64       `db:"wagon_id" json:"wagon_id"`
+	SeatID      int64       `db:"seat_id" json:"seat_id"`
+	DiscountID  pgtype.UUID `db:"discount_id" json:"discount_id"`
 }
 
 func (q *Queries) CreateReservation(ctx context.Context, arg CreateReservationParams) (Reservation, error) {
 	row := q.db.QueryRow(ctx, createReservation,
 		arg.PassengerID,
 		arg.ScheduleID,
-		arg.SeatNumber,
-		arg.BookingDate,
-		arg.PaymentID,
-		arg.Status,
+		arg.WagonID,
+		arg.SeatID,
+		arg.DiscountID,
 	)
 	var i Reservation
 	err := row.Scan(
 		&i.ID,
 		&i.PassengerID,
 		&i.ScheduleID,
-		&i.SeatNumber,
+		&i.WagonID,
+		&i.SeatID,
 		&i.BookingDate,
-		&i.PaymentID,
+		&i.DiscountID,
 		&i.Status,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createReservationFromHold = `-- name: CreateReservationFromHold :one
+WITH deleted_hold AS (
+    DELETE FROM seat_holds
+    WHERE seat_holds.passenger_id = $1 
+    AND seat_holds.schedule_id = $2
+    AND seat_holds.wagon_id = $3
+    AND seat_holds.seat_id = $4
+    RETURNING passenger_id, schedule_id, wagon_id, seat_id
+)
+INSERT INTO reservations (
+    id, passenger_id, schedule_id, wagon_id, seat_id, booking_date, status, expires_at
+)
+SELECT 
+    uuid_generate_v4(), deleted_hold.passenger_id, deleted_hold.schedule_id, deleted_hold.wagon_id, deleted_hold.seat_id,
+    NOW(), 'pending', NOW() + INTERVAL '15 minutes'
+FROM deleted_hold
+RETURNING id, passenger_id, schedule_id, wagon_id, seat_id, booking_date, discount_id, status, expires_at, created_at, updated_at
+`
+
+type CreateReservationFromHoldParams struct {
+	PassengerID pgtype.UUID `db:"passenger_id" json:"passenger_id"`
+	ScheduleID  *int64      `db:"schedule_id" json:"schedule_id"`
+	WagonID     *int64      `db:"wagon_id" json:"wagon_id"`
+	SeatID      *int64      `db:"seat_id" json:"seat_id"`
+}
+
+func (q *Queries) CreateReservationFromHold(ctx context.Context, arg CreateReservationFromHoldParams) (Reservation, error) {
+	row := q.db.QueryRow(ctx, createReservationFromHold,
+		arg.PassengerID,
+		arg.ScheduleID,
+		arg.WagonID,
+		arg.SeatID,
+	)
+	var i Reservation
+	err := row.Scan(
+		&i.ID,
+		&i.PassengerID,
+		&i.ScheduleID,
+		&i.WagonID,
+		&i.SeatID,
+		&i.BookingDate,
+		&i.DiscountID,
+		&i.Status,
+		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -64,52 +167,155 @@ func (q *Queries) DeleteReservation(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-const getReservation = `-- name: GetReservation :one
-SELECT id, passenger_id, schedule_id, seat_number, booking_date, payment_id, status, created_at, updated_at FROM  reservations
-WHERE id = $1 LIMIT 1
+const expireSeatHolds = `-- name: ExpireSeatHolds :exec
+DELETE FROM seat_holds
+WHERE expires_at < NOW()
 `
 
-func (q *Queries) GetReservation(ctx context.Context, id uuid.UUID) (Reservation, error) {
-	row := q.db.QueryRow(ctx, getReservation, id)
-	var i Reservation
+func (q *Queries) ExpireSeatHolds(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, expireSeatHolds)
+	return err
+}
+
+const expireUndpaidReservations = `-- name: ExpireUndpaidReservations :exec
+DELETE FROM reservations
+WHERE expires_at < NOW() AND status = 'pending'
+`
+
+func (q *Queries) ExpireUndpaidReservations(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, expireUndpaidReservations)
+	return err
+}
+
+const getFullReservation = `-- name: GetFullReservation :one
+SELECT 
+r.id AS reservation_id,
+p.name AS passenger_name,
+p.id_number AS passenger_id_number,
+u.name AS user_name,
+u.email AS user_email,
+s.departure_time,
+s.arrival_time,
+s.price AS ticket_price,
+t.name AS train_name,
+w.class_type,
+w.wagon_number,
+st.seat_number,
+st.seat_row,
+r.booking_date,
+r.status,
+rt.source_station,
+rt.destination_station,
+d.code AS discount_code,
+d.discount_percent,
+py.amount AS payment_amount,
+py.payment_method,
+py.status AS payment_status
+FROM reservations r
+LEFT JOIN passengers p ON r.passenger_id = p.id
+LEFT JOIN users u ON p.user_id = u.id
+LEFT JOIN schedules s ON r.schedule_id = s.id
+LEFT JOIN seats st ON r.seat_id = st.id
+LEFT JOIN wagons w ON r.wagon_id = w.id
+LEFT JOIN trains t ON s.train_id = t.id
+LEFT JOIN routes rt ON s.route_id = rt.id
+LEFT JOIN discount_codes d ON r.discount_id = d.code
+LEFT JOIN payments py ON r.payment_id = py.id
+WHERE r.id = $1
+`
+
+type GetFullReservationRow struct {
+	ReservationID      uuid.UUID         `db:"reservation_id" json:"reservation_id"`
+	PassengerName      *string           `db:"passenger_name" json:"passenger_name"`
+	PassengerIDNumber  *string           `db:"passenger_id_number" json:"passenger_id_number"`
+	UserName           *string           `db:"user_name" json:"user_name"`
+	UserEmail          *string           `db:"user_email" json:"user_email"`
+	DepartureTime      pgtype.Timestamp  `db:"departure_time" json:"departure_time"`
+	ArrivalTime        pgtype.Timestamp  `db:"arrival_time" json:"arrival_time"`
+	TicketPrice        *int64            `db:"ticket_price" json:"ticket_price"`
+	TrainName          *string           `db:"train_name" json:"train_name"`
+	ClassType          NullTipeClass     `db:"class_type" json:"class_type"`
+	WagonNumber        *int32            `db:"wagon_number" json:"wagon_number"`
+	SeatNumber         *int32            `db:"seat_number" json:"seat_number"`
+	SeatRow            NullSeatRow       `db:"seat_row" json:"seat_row"`
+	BookingDate        pgtype.Timestamp  `db:"booking_date" json:"booking_date"`
+	Status             StatusReservation `db:"status" json:"status"`
+	SourceStation      *string           `db:"source_station" json:"source_station"`
+	DestinationStation *string           `db:"destination_station" json:"destination_station"`
+	DiscountCode       *string           `db:"discount_code" json:"discount_code"`
+	DiscountPercent    *int32            `db:"discount_percent" json:"discount_percent"`
+	PaymentAmount      *int64            `db:"payment_amount" json:"payment_amount"`
+	PaymentMethod      *string           `db:"payment_method" json:"payment_method"`
+	PaymentStatus      *string           `db:"payment_status" json:"payment_status"`
+}
+
+func (q *Queries) GetFullReservation(ctx context.Context, id uuid.UUID) (GetFullReservationRow, error) {
+	row := q.db.QueryRow(ctx, getFullReservation, id)
+	var i GetFullReservationRow
 	err := row.Scan(
-		&i.ID,
-		&i.PassengerID,
-		&i.ScheduleID,
+		&i.ReservationID,
+		&i.PassengerName,
+		&i.PassengerIDNumber,
+		&i.UserName,
+		&i.UserEmail,
+		&i.DepartureTime,
+		&i.ArrivalTime,
+		&i.TicketPrice,
+		&i.TrainName,
+		&i.ClassType,
+		&i.WagonNumber,
 		&i.SeatNumber,
+		&i.SeatRow,
 		&i.BookingDate,
-		&i.PaymentID,
 		&i.Status,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+		&i.SourceStation,
+		&i.DestinationStation,
+		&i.DiscountCode,
+		&i.DiscountPercent,
+		&i.PaymentAmount,
+		&i.PaymentMethod,
+		&i.PaymentStatus,
 	)
 	return i, err
 }
 
+const holdSeat = `-- name: HoldSeat :exec
+INSERT INTO seat_holds (passenger_id, schedule_id, wagon_id, seat_id, expires_at)
+VALUES ($1, $2, $3, $4, NOW() + INTERVAL '15 minutes')
+RETURNING id, passenger_id, schedule_id, wagon_id, seat_id, expires_at, created_at
+`
+
+type HoldSeatParams struct {
+	PassengerID pgtype.UUID `db:"passenger_id" json:"passenger_id"`
+	ScheduleID  *int64      `db:"schedule_id" json:"schedule_id"`
+	WagonID     *int64      `db:"wagon_id" json:"wagon_id"`
+	SeatID      *int64      `db:"seat_id" json:"seat_id"`
+}
+
+func (q *Queries) HoldSeat(ctx context.Context, arg HoldSeatParams) error {
+	_, err := q.db.Exec(ctx, holdSeat,
+		arg.PassengerID,
+		arg.ScheduleID,
+		arg.WagonID,
+		arg.SeatID,
+	)
+	return err
+}
+
 const listReservations = `-- name: ListReservations :many
-SELECT id, passenger_id, schedule_id, seat_number, booking_date, payment_id, status, created_at, updated_at FROM reservations
-WHERE
- passenger_id = $1 OR
- schedule_id = $2
-ORDER BY booking_date
-LIMIT $3
-OFFSET $4
+SELECT id, passenger_id, schedule_id, wagon_id, seat_id, booking_date, discount_id, status, expires_at, created_at, updated_at FROM reservations
+ORDER BY booking_date DESC
+LIMIT $1
+OFFSET $2
 `
 
 type ListReservationsParams struct {
-	PassengerID int64 `db:"passenger_id" json:"passenger_id"`
-	ScheduleID  int64 `db:"schedule_id" json:"schedule_id"`
-	Limit       int32 `db:"limit" json:"limit"`
-	Offset      int32 `db:"offset" json:"offset"`
+	Limit  int32 `db:"limit" json:"limit"`
+	Offset int32 `db:"offset" json:"offset"`
 }
 
 func (q *Queries) ListReservations(ctx context.Context, arg ListReservationsParams) ([]Reservation, error) {
-	rows, err := q.db.Query(ctx, listReservations,
-		arg.PassengerID,
-		arg.ScheduleID,
-		arg.Limit,
-		arg.Offset,
-	)
+	rows, err := q.db.Query(ctx, listReservations, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -121,10 +327,12 @@ func (q *Queries) ListReservations(ctx context.Context, arg ListReservationsPara
 			&i.ID,
 			&i.PassengerID,
 			&i.ScheduleID,
-			&i.SeatNumber,
+			&i.WagonID,
+			&i.SeatID,
 			&i.BookingDate,
-			&i.PaymentID,
+			&i.DiscountID,
 			&i.Status,
+			&i.ExpiresAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -140,18 +348,20 @@ func (q *Queries) ListReservations(ctx context.Context, arg ListReservationsPara
 
 const updateReservation = `-- name: UpdateReservation :exec
 UPDATE reservations
-  set  passenger_id = $2 , schedule_id = $3, seat_number = $4, booking_date = $5, payment_id = $6, status = $7
+  set  passenger_id = $2 , schedule_id = $3, wagon_id=$4, seat_id = $5, booking_date = $6, status = $7, discount_id = $8, expires_at = $9, updated_at = NOW()
 WHERE id = $1
 `
 
 type UpdateReservationParams struct {
-	ID          uuid.UUID             `db:"id" json:"id"`
-	PassengerID int64                 `db:"passenger_id" json:"passenger_id"`
-	ScheduleID  int64                 `db:"schedule_id" json:"schedule_id"`
-	SeatNumber  *int32                `db:"seat_number" json:"seat_number"`
-	BookingDate pgtype.Timestamp      `db:"booking_date" json:"booking_date"`
-	PaymentID   uuid.UUID             `db:"payment_id" json:"payment_id"`
-	Status      NullStatusReservation `db:"status" json:"status"`
+	ID          uuid.UUID         `db:"id" json:"id"`
+	PassengerID uuid.UUID         `db:"passenger_id" json:"passenger_id"`
+	ScheduleID  int64             `db:"schedule_id" json:"schedule_id"`
+	WagonID     int64             `db:"wagon_id" json:"wagon_id"`
+	SeatID      int64             `db:"seat_id" json:"seat_id"`
+	BookingDate pgtype.Timestamp  `db:"booking_date" json:"booking_date"`
+	Status      StatusReservation `db:"status" json:"status"`
+	DiscountID  pgtype.UUID       `db:"discount_id" json:"discount_id"`
+	ExpiresAt   pgtype.Timestamp  `db:"expires_at" json:"expires_at"`
 }
 
 func (q *Queries) UpdateReservation(ctx context.Context, arg UpdateReservationParams) error {
@@ -159,10 +369,23 @@ func (q *Queries) UpdateReservation(ctx context.Context, arg UpdateReservationPa
 		arg.ID,
 		arg.PassengerID,
 		arg.ScheduleID,
-		arg.SeatNumber,
+		arg.WagonID,
+		arg.SeatID,
 		arg.BookingDate,
-		arg.PaymentID,
 		arg.Status,
+		arg.DiscountID,
+		arg.ExpiresAt,
 	)
+	return err
+}
+
+const updateTrainCapacity = `-- name: UpdateTrainCapacity :exec
+UPDATE schedules
+SET available_seats = available_seats - 1
+WHERE id = $1 AND available_seats > 0
+`
+
+func (q *Queries) UpdateTrainCapacity(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, updateTrainCapacity, id)
 	return err
 }

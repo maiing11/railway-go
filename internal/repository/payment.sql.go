@@ -12,6 +12,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const completePayment = `-- name: CompletePayment :exec
+UPDATE payments
+  set status = 'success', payment_date = NOW()
+WHERE id = $1 AND status = 'pending'
+`
+
+func (q *Queries) CompletePayment(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, completePayment, id)
+	return err
+}
+
 const createPayment = `-- name: CreatePayment :one
 INSERT INTO payments (
     reservation_id, payment_method, amount, transaction_id, payment_date, gateway_response, status
@@ -22,13 +33,13 @@ RETURNING id, reservation_id, payment_method, amount, transaction_id, payment_da
 `
 
 type CreatePaymentParams struct {
-	ReservationID   pgtype.UUID      `db:"reservation_id" json:"reservation_id"`
-	PaymentMethod   *string          `db:"payment_method" json:"payment_method"`
-	Amount          *int64           `db:"amount" json:"amount"`
-	TransactionID   *string          `db:"transaction_id" json:"transaction_id"`
+	ReservationID   uuid.UUID        `db:"reservation_id" json:"reservation_id"`
+	PaymentMethod   string           `db:"payment_method" json:"payment_method"`
+	Amount          int64            `db:"amount" json:"amount"`
+	TransactionID   string           `db:"transaction_id" json:"transaction_id"`
 	PaymentDate     pgtype.Timestamp `db:"payment_date" json:"payment_date"`
 	GatewayResponse *string          `db:"gateway_response" json:"gateway_response"`
-	Status          *string          `db:"status" json:"status"`
+	Status          string           `db:"status" json:"status"`
 }
 
 func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (Payment, error) {
@@ -64,6 +75,17 @@ WHERE id = $1
 
 func (q *Queries) DeletePayment(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deletePayment, id)
+	return err
+}
+
+const failPayment = `-- name: FailPayment :exec
+UPDATE payments
+  set status = 'failed', payment_date = NOW()
+WHERE id = $1 AND status = 'pending'
+`
+
+func (q *Queries) FailPayment(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, failPayment, id)
 	return err
 }
 
@@ -140,13 +162,13 @@ WHERE id = $1
 
 type UpdatePaymentParams struct {
 	ID              uuid.UUID        `db:"id" json:"id"`
-	ReservationID   pgtype.UUID      `db:"reservation_id" json:"reservation_id"`
-	PaymentMethod   *string          `db:"payment_method" json:"payment_method"`
-	Amount          *int64           `db:"amount" json:"amount"`
-	TransactionID   *string          `db:"transaction_id" json:"transaction_id"`
+	ReservationID   uuid.UUID        `db:"reservation_id" json:"reservation_id"`
+	PaymentMethod   string           `db:"payment_method" json:"payment_method"`
+	Amount          int64            `db:"amount" json:"amount"`
+	TransactionID   string           `db:"transaction_id" json:"transaction_id"`
 	PaymentDate     pgtype.Timestamp `db:"payment_date" json:"payment_date"`
 	GatewayResponse *string          `db:"gateway_response" json:"gateway_response"`
-	Status          *string          `db:"status" json:"status"`
+	Status          string           `db:"status" json:"status"`
 }
 
 func (q *Queries) UpdatePayment(ctx context.Context, arg UpdatePaymentParams) error {

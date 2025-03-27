@@ -16,7 +16,7 @@ tasks:
     silent: true
   dockerstart:
     cmds:
-      - systemctl start docker
+      - sudo systemctl start docker
       - docker start postgres
   migrateup:
     cmds:

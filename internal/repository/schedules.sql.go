@@ -13,27 +13,27 @@ import (
 
 const createSchedule = `-- name: CreateSchedule :one
 INSERT INTO schedules (
-   train_id, class_type, departure_date, available_seats, price, route_id
+   train_id, departure_time, arrival_time, available_seats, price, route_id
 ) VALUES (
     $1, $2, $3, $4, $5, $6
 )
-RETURNING id, train_id, class_type, departure_date, arrival_date, available_seats, price, route_id, created_at, updated_at
+RETURNING id, train_id, route_id, departure_time, arrival_time, available_seats, price, created_at, updated_at
 `
 
 type CreateScheduleParams struct {
-	TrainID        int32            `db:"train_id" json:"train_id"`
-	ClassType      TipeClass        `db:"class_type" json:"class_type"`
-	DepartureDate  pgtype.Timestamp `db:"departure_date" json:"departure_date"`
+	TrainID        int64            `db:"train_id" json:"train_id"`
+	DepartureTime  pgtype.Timestamp `db:"departure_time" json:"departure_time"`
+	ArrivalTime    pgtype.Timestamp `db:"arrival_time" json:"arrival_time"`
 	AvailableSeats int32            `db:"available_seats" json:"available_seats"`
 	Price          int64            `db:"price" json:"price"`
-	RouteID        int32            `db:"route_id" json:"route_id"`
+	RouteID        int64            `db:"route_id" json:"route_id"`
 }
 
 func (q *Queries) CreateSchedule(ctx context.Context, arg CreateScheduleParams) (Schedule, error) {
 	row := q.db.QueryRow(ctx, createSchedule,
 		arg.TrainID,
-		arg.ClassType,
-		arg.DepartureDate,
+		arg.DepartureTime,
+		arg.ArrivalTime,
 		arg.AvailableSeats,
 		arg.Price,
 		arg.RouteID,
@@ -42,12 +42,11 @@ func (q *Queries) CreateSchedule(ctx context.Context, arg CreateScheduleParams) 
 	err := row.Scan(
 		&i.ID,
 		&i.TrainID,
-		&i.ClassType,
-		&i.DepartureDate,
-		&i.ArrivalDate,
+		&i.RouteID,
+		&i.DepartureTime,
+		&i.ArrivalTime,
 		&i.AvailableSeats,
 		&i.Price,
-		&i.RouteID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -65,7 +64,7 @@ func (q *Queries) DeleteSchedule(ctx context.Context, id int64) error {
 }
 
 const getSchedule = `-- name: GetSchedule :one
-SELECT id, train_id, class_type, departure_date, arrival_date, available_seats, price, route_id, created_at, updated_at FROM  schedules
+SELECT id, train_id, route_id, departure_time, arrival_time, available_seats, price, created_at, updated_at FROM  schedules
 WHERE id = $1 LIMIT 1
 `
 
@@ -75,12 +74,11 @@ func (q *Queries) GetSchedule(ctx context.Context, id int64) (Schedule, error) {
 	err := row.Scan(
 		&i.ID,
 		&i.TrainID,
-		&i.ClassType,
-		&i.DepartureDate,
-		&i.ArrivalDate,
+		&i.RouteID,
+		&i.DepartureTime,
+		&i.ArrivalTime,
 		&i.AvailableSeats,
 		&i.Price,
-		&i.RouteID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -121,33 +119,33 @@ func (q *Queries) ListSchedules(ctx context.Context) ([]Train, error) {
 const updateSchedule = `-- name: UpdateSchedule :exec
 UPDATE schedules
   set train_id = $2,
-  class_type = $3,
-  departure_date = $4,
-  available_seats= $5,
+  route_id = $3,
+  departure_time = $4,
+  arrival_time = $5,
   price = $6,
-  route_id = $7
+  available_seats = $7
 WHERE id = $1
 `
 
 type UpdateScheduleParams struct {
 	ID             int64            `db:"id" json:"id"`
-	TrainID        int32            `db:"train_id" json:"train_id"`
-	ClassType      TipeClass        `db:"class_type" json:"class_type"`
-	DepartureDate  pgtype.Timestamp `db:"departure_date" json:"departure_date"`
-	AvailableSeats int32            `db:"available_seats" json:"available_seats"`
+	TrainID        int64            `db:"train_id" json:"train_id"`
+	RouteID        int64            `db:"route_id" json:"route_id"`
+	DepartureTime  pgtype.Timestamp `db:"departure_time" json:"departure_time"`
+	ArrivalTime    pgtype.Timestamp `db:"arrival_time" json:"arrival_time"`
 	Price          int64            `db:"price" json:"price"`
-	RouteID        int32            `db:"route_id" json:"route_id"`
+	AvailableSeats int32            `db:"available_seats" json:"available_seats"`
 }
 
 func (q *Queries) UpdateSchedule(ctx context.Context, arg UpdateScheduleParams) error {
 	_, err := q.db.Exec(ctx, updateSchedule,
 		arg.ID,
 		arg.TrainID,
-		arg.ClassType,
-		arg.DepartureDate,
-		arg.AvailableSeats,
-		arg.Price,
 		arg.RouteID,
+		arg.DepartureTime,
+		arg.ArrivalTime,
+		arg.Price,
+		arg.AvailableSeats,
 	)
 	return err
 }

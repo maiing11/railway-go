@@ -12,12 +12,56 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type SeatRow string
+
+const (
+	SeatRowA SeatRow = "A"
+	SeatRowB SeatRow = "B"
+	SeatRowC SeatRow = "C"
+	SeatRowD SeatRow = "D"
+)
+
+func (e *SeatRow) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = SeatRow(s)
+	case string:
+		*e = SeatRow(s)
+	default:
+		return fmt.Errorf("unsupported scan type for SeatRow: %T", src)
+	}
+	return nil
+}
+
+type NullSeatRow struct {
+	SeatRow SeatRow `json:"seat_row"`
+	Valid   bool    `json:"valid"` // Valid is true if SeatRow is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullSeatRow) Scan(value interface{}) error {
+	if value == nil {
+		ns.SeatRow, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.SeatRow.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullSeatRow) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.SeatRow), nil
+}
+
 type StatusReservation string
 
 const (
-	StatusReservationPending  StatusReservation = "pending"
-	StatusReservationCanceled StatusReservation = "canceled"
-	StatusReservationSuccess  StatusReservation = "success"
+	StatusReservationPending   StatusReservation = "pending"
+	StatusReservationSuccess   StatusReservation = "success"
+	StatusReservationCancelled StatusReservation = "cancelled"
 )
 
 func (e *StatusReservation) Scan(src interface{}) error {
@@ -98,8 +142,18 @@ func (ns NullTipeClass) Value() (driver.Value, error) {
 	return string(ns.TipeClass), nil
 }
 
+type DiscountCode struct {
+	ID              uuid.UUID        `db:"id" json:"id"`
+	Code            string           `db:"code" json:"code"`
+	DiscountPercent int32            `db:"discount_percent" json:"discount_percent"`
+	MaxUses         int32            `db:"max_uses" json:"max_uses"`
+	ExpiresAt       pgtype.Timestamp `db:"expires_at" json:"expires_at"`
+	CreatedAt       pgtype.Timestamp `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamp `db:"updated_at" json:"updated_at"`
+}
+
 type Passenger struct {
-	ID        int64            `db:"id" json:"id"`
+	ID        uuid.UUID        `db:"id" json:"id"`
 	Name      string           `db:"name" json:"name"`
 	IDNumber  string           `db:"id_number" json:"id_number"`
 	UserID    pgtype.UUID      `db:"user_id" json:"user_id"`
@@ -109,27 +163,34 @@ type Passenger struct {
 
 type Payment struct {
 	ID              uuid.UUID        `db:"id" json:"id"`
-	ReservationID   pgtype.UUID      `db:"reservation_id" json:"reservation_id"`
-	PaymentMethod   *string          `db:"payment_method" json:"payment_method"`
-	Amount          *int64           `db:"amount" json:"amount"`
-	TransactionID   *string          `db:"transaction_id" json:"transaction_id"`
+	ReservationID   uuid.UUID        `db:"reservation_id" json:"reservation_id"`
+	PaymentMethod   string           `db:"payment_method" json:"payment_method"`
+	Amount          int64            `db:"amount" json:"amount"`
+	TransactionID   string           `db:"transaction_id" json:"transaction_id"`
 	PaymentDate     pgtype.Timestamp `db:"payment_date" json:"payment_date"`
 	GatewayResponse *string          `db:"gateway_response" json:"gateway_response"`
-	Status          *string          `db:"status" json:"status"`
+	Status          string           `db:"status" json:"status"`
 	CreatedAt       pgtype.Timestamp `db:"created_at" json:"created_at"`
 	UpdatedAt       pgtype.Timestamp `db:"updated_at" json:"updated_at"`
 }
 
 type Reservation struct {
-	ID          uuid.UUID             `db:"id" json:"id"`
-	PassengerID int64                 `db:"passenger_id" json:"passenger_id"`
-	ScheduleID  int64                 `db:"schedule_id" json:"schedule_id"`
-	SeatNumber  *int32                `db:"seat_number" json:"seat_number"`
-	BookingDate pgtype.Timestamp      `db:"booking_date" json:"booking_date"`
-	PaymentID   uuid.UUID             `db:"payment_id" json:"payment_id"`
-	Status      NullStatusReservation `db:"status" json:"status"`
-	CreatedAt   pgtype.Timestamp      `db:"created_at" json:"created_at"`
-	UpdatedAt   pgtype.Timestamp      `db:"updated_at" json:"updated_at"`
+	ID          uuid.UUID         `db:"id" json:"id"`
+	PassengerID uuid.UUID         `db:"passenger_id" json:"passenger_id"`
+	ScheduleID  int64             `db:"schedule_id" json:"schedule_id"`
+	WagonID     int64             `db:"wagon_id" json:"wagon_id"`
+	SeatID      int64             `db:"seat_id" json:"seat_id"`
+	BookingDate pgtype.Timestamp  `db:"booking_date" json:"booking_date"`
+	DiscountID  pgtype.UUID       `db:"discount_id" json:"discount_id"`
+	Status      StatusReservation `db:"status" json:"status"`
+	ExpiresAt   pgtype.Timestamp  `db:"expires_at" json:"expires_at"`
+	CreatedAt   pgtype.Timestamp  `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamp  `db:"updated_at" json:"updated_at"`
+}
+
+type ReservationDiscount struct {
+	ReservationID uuid.UUID `db:"reservation_id" json:"reservation_id"`
+	DiscountID    uuid.UUID `db:"discount_id" json:"discount_id"`
 }
 
 type Route struct {
@@ -143,15 +204,34 @@ type Route struct {
 
 type Schedule struct {
 	ID             int64            `db:"id" json:"id"`
-	TrainID        int32            `db:"train_id" json:"train_id"`
-	ClassType      TipeClass        `db:"class_type" json:"class_type"`
-	DepartureDate  pgtype.Timestamp `db:"departure_date" json:"departure_date"`
-	ArrivalDate    pgtype.Timestamp `db:"arrival_date" json:"arrival_date"`
+	TrainID        int64            `db:"train_id" json:"train_id"`
+	RouteID        int64            `db:"route_id" json:"route_id"`
+	DepartureTime  pgtype.Timestamp `db:"departure_time" json:"departure_time"`
+	ArrivalTime    pgtype.Timestamp `db:"arrival_time" json:"arrival_time"`
 	AvailableSeats int32            `db:"available_seats" json:"available_seats"`
 	Price          int64            `db:"price" json:"price"`
-	RouteID        int32            `db:"route_id" json:"route_id"`
 	CreatedAt      pgtype.Timestamp `db:"created_at" json:"created_at"`
 	UpdatedAt      pgtype.Timestamp `db:"updated_at" json:"updated_at"`
+}
+
+type Seat struct {
+	ID          int64            `db:"id" json:"id"`
+	WagonID     *int64           `db:"wagon_id" json:"wagon_id"`
+	SeatNumber  int32            `db:"seat_number" json:"seat_number"`
+	SeatRow     SeatRow          `db:"seat_row" json:"seat_row"`
+	IsAvailable *bool            `db:"is_available" json:"is_available"`
+	CreatedAt   pgtype.Timestamp `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamp `db:"updated_at" json:"updated_at"`
+}
+
+type SeatHold struct {
+	ID          uuid.UUID        `db:"id" json:"id"`
+	PassengerID pgtype.UUID      `db:"passenger_id" json:"passenger_id"`
+	ScheduleID  *int64           `db:"schedule_id" json:"schedule_id"`
+	WagonID     *int64           `db:"wagon_id" json:"wagon_id"`
+	SeatID      *int64           `db:"seat_id" json:"seat_id"`
+	ExpiresAt   pgtype.Timestamp `db:"expires_at" json:"expires_at"`
+	CreatedAt   pgtype.Timestamp `db:"created_at" json:"created_at"`
 }
 
 type Train struct {
@@ -167,7 +247,17 @@ type User struct {
 	Name        string           `db:"name" json:"name"`
 	Email       string           `db:"email" json:"email"`
 	Password    string           `db:"password" json:"password"`
-	Phonenumber string           `db:"phonenumber" json:"phonenumber"`
+	PhoneNumber string           `db:"phone_number" json:"phone_number"`
+	CreatedAt   pgtype.Timestamp `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamp `db:"updated_at" json:"updated_at"`
+}
+
+type Wagon struct {
+	ID          int64            `db:"id" json:"id"`
+	TrainID     int64            `db:"train_id" json:"train_id"`
+	WagonNumber int32            `db:"wagon_number" json:"wagon_number"`
+	ClassType   TipeClass        `db:"class_type" json:"class_type"`
+	TotalSeats  int32            `db:"total_seats" json:"total_seats"`
 	CreatedAt   pgtype.Timestamp `db:"created_at" json:"created_at"`
 	UpdatedAt   pgtype.Timestamp `db:"updated_at" json:"updated_at"`
 }

@@ -3,11 +3,24 @@ package http
 import (
 	"context"
 	"railway-go/internal/constant/model"
+	"railway-go/internal/usecase"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 )
+
+type UserSessionControllers struct {
+	Log     *zap.Logger
+	Usecase *usecase.UserSessionUsecase
+}
+
+func NewUserSessionController(usecase *usecase.UserSessionUsecase, log *zap.Logger) *UserSessionControllers {
+	return &UserSessionControllers{
+		Usecase: usecase,
+		Log:     log,
+	}
+}
 
 // Register handles the user registration process.
 // It parses the request body into a RegisterUserRequest struct,
@@ -24,7 +37,7 @@ import (
 // @Success 201 {object} model.SuccessResponse "User registered successfully"
 // @Failure 400 {object} model.ErrorResponse "Invalid request body or missing required fields"
 // @Router /register [post]
-func (c *Controllers) Register(ctx *fiber.Ctx) error {
+func (c *UserSessionControllers) Register(ctx *fiber.Ctx) error {
 	request := new(model.RegisterUserRequest)
 	err := ctx.BodyParser(request)
 
@@ -50,7 +63,7 @@ type contextKey = string
 
 const fiberCtx contextKey = "fiberCtx"
 
-func (c *Controllers) Login(ctx *fiber.Ctx) error {
+func (c *UserSessionControllers) Login(ctx *fiber.Ctx) error {
 	request := new(model.LoginUserRequest)
 	if err := ctx.BodyParser(request); err != nil {
 		c.Log.Warn("Failed to parse request body: %+v", zap.Error(err))
@@ -68,7 +81,7 @@ func (c *Controllers) Login(ctx *fiber.Ctx) error {
 	return ctx.Status(fiber.StatusOK).JSON(model.BuildSuccessResponse(token, nil))
 }
 
-func (c *Controllers) Logout(ctx *fiber.Ctx) error {
+func (c *UserSessionControllers) Logout(ctx *fiber.Ctx) error {
 	// extract session_id from cookies
 
 	sessionID := ctx.Cookies("session_id")

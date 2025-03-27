@@ -25,6 +25,16 @@ UPDATE payments
   status = $8
 WHERE id = $1;
 
+-- name: CompletePayment :exec
+UPDATE payments
+  set status = 'success', payment_date = NOW()
+WHERE id = $1 AND status = 'pending';
+
+-- name: FailPayment :exec
+UPDATE payments
+  set status = 'failed', payment_date = NOW()
+WHERE id = $1 AND status = 'pending';
+
 
 -- name: DeletePayment :exec
 DELETE FROM payments

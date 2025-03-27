@@ -45,12 +45,11 @@ func (uc *UserSessionUsecase) RenewAccessToken(ctx context.Context, refreshToken
 
 func (u *UserSessionUsecase) CreateGuestSession(ctx context.Context, userAgent, clientIp string) (*model.Session, error) {
 	sessionID, err := uuid.NewRandom()
-
 	if err != nil {
 		return nil, err
 	}
 
-	expiry := time.Now().Add(24 * time.Hour)
+	expiry := time.Now().Add(5 * time.Hour)
 
 	session := &model.Session{
 		ID:        sessionID.String(),

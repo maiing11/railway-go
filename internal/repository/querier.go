@@ -11,44 +11,71 @@ import (
 )
 
 type Querier interface {
+	ApplyDiscountToReservation(ctx context.Context, arg ApplyDiscountToReservationParams) error
+	CancelReservation(ctx context.Context, id uuid.UUID) error
+	CheckSeatAvailability(ctx context.Context, arg CheckSeatAvailabilityParams) (int64, error)
+	CleanupExpiredHolds(ctx context.Context) error
+	CompletePayment(ctx context.Context, id uuid.UUID) error
+	ConfirmReservation(ctx context.Context, id uuid.UUID) error
 	CountUserByEmail(ctx context.Context, email string) (int64, error)
+	CreateDiscountCode(ctx context.Context, arg CreateDiscountCodeParams) (DiscountCode, error)
 	CreatePassenger(ctx context.Context, arg CreatePassengerParams) (Passenger, error)
 	CreatePayment(ctx context.Context, arg CreatePaymentParams) (Payment, error)
 	CreateReservation(ctx context.Context, arg CreateReservationParams) (Reservation, error)
+	CreateReservationFromHold(ctx context.Context, arg CreateReservationFromHoldParams) (Reservation, error)
 	CreateRoute(ctx context.Context, arg CreateRouteParams) (Route, error)
 	CreateSchedule(ctx context.Context, arg CreateScheduleParams) (Schedule, error)
+	CreateSeat(ctx context.Context, arg CreateSeatParams) (Seat, error)
 	CreateTrain(ctx context.Context, arg CreateTrainParams) (Train, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) error
-	DeletePassenger(ctx context.Context, id int64) error
+	CreateWagon(ctx context.Context, arg CreateWagonParams) (Wagon, error)
+	DeletePassenger(ctx context.Context, id uuid.UUID) error
 	DeletePayment(ctx context.Context, id uuid.UUID) error
 	DeleteReservation(ctx context.Context, id uuid.UUID) error
 	DeleteRoute(ctx context.Context, id int64) error
 	DeleteSchedule(ctx context.Context, id int64) error
+	DeleteSeat(ctx context.Context, id int64) error
 	DeleteTrain(ctx context.Context, id int64) error
 	DeleteUser(ctx context.Context, id uuid.UUID) error
-	GetPassenger(ctx context.Context, id int64) (Passenger, error)
+	DeleteWagon(ctx context.Context, id int64) error
+	ExpireSeatHolds(ctx context.Context) error
+	ExpireUndpaidReservations(ctx context.Context) error
+	FailPayment(ctx context.Context, id uuid.UUID) error
+	GetDiscountByCode(ctx context.Context, code string) (DiscountCode, error)
+	GetDiscountsForReservation(ctx context.Context, reservationID uuid.UUID) ([]GetDiscountsForReservationRow, error)
+	GetFullReservation(ctx context.Context, id uuid.UUID) (GetFullReservationRow, error)
+	GetPassenger(ctx context.Context, id uuid.UUID) (Passenger, error)
 	GetPayment(ctx context.Context, id uuid.UUID) (Payment, error)
-	GetReservation(ctx context.Context, id uuid.UUID) (Reservation, error)
 	GetRoute(ctx context.Context, id int64) (Route, error)
 	GetSchedule(ctx context.Context, id int64) (Schedule, error)
+	GetSeat(ctx context.Context, id int64) (Seat, error)
 	GetTrain(ctx context.Context, id int64) (Train, error)
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
+	GetWagon(ctx context.Context, id int64) (Wagon, error)
+	HoldSeat(ctx context.Context, arg HoldSeatParams) error
 	ListPassengers(ctx context.Context) ([]Passenger, error)
 	ListPayments(ctx context.Context) ([]Payment, error)
 	ListReservations(ctx context.Context, arg ListReservationsParams) ([]Reservation, error)
 	ListRoute(ctx context.Context) ([]Route, error)
 	ListSchedules(ctx context.Context) ([]Train, error)
+	ListSeats(ctx context.Context) ([]Seat, error)
 	ListTrains(ctx context.Context) ([]Train, error)
 	ListUsers(ctx context.Context) ([]User, error)
+	ListWagons(ctx context.Context) ([]Wagon, error)
+	ReduceDiscountUsage(ctx context.Context, id uuid.UUID) error
+	UpdateDiscountCode(ctx context.Context, arg UpdateDiscountCodeParams) error
 	UpdatePassenger(ctx context.Context, arg UpdatePassengerParams) error
 	UpdatePayment(ctx context.Context, arg UpdatePaymentParams) error
 	UpdateReservation(ctx context.Context, arg UpdateReservationParams) error
 	UpdateRoute(ctx context.Context, arg UpdateRouteParams) error
 	UpdateSchedule(ctx context.Context, arg UpdateScheduleParams) error
+	UpdateSeat(ctx context.Context, arg UpdateSeatParams) error
 	UpdateTrain(ctx context.Context, arg UpdateTrainParams) error
+	UpdateTrainCapacity(ctx context.Context, id int64) error
 	UpdateUser(ctx context.Context, arg UpdateUserParams) error
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
+	UpdateWagon(ctx context.Context, arg UpdateWagonParams) error
 }
 
 var _ Querier = (*Queries)(nil)

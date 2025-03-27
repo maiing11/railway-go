@@ -6,12 +6,39 @@ import (
 	"railway-go/internal/constant/model"
 	"railway-go/internal/repository"
 	"railway-go/internal/utils"
+	"railway-go/internal/utils/token"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
+
+type UserSessionUsecase struct {
+	Repo       repository.Store
+	Logger     *zap.Logger
+	Validate   *validator.Validate
+	TokenMaker token.Maker
+	config     *viper.Viper
+}
+
+func NewUserSessionUsecase(
+	repo repository.Store,
+	logger *zap.Logger,
+	validate *validator.Validate,
+	tokenMaker token.Maker,
+	config *viper.Viper,
+) *UserSessionUsecase {
+	return &UserSessionUsecase{
+		Repo:       repo,
+		Logger:     logger,
+		Validate:   validate,
+		TokenMaker: tokenMaker,
+		config:     config,
+	}
+}
 
 func (uc *UserSessionUsecase) Register(ctx context.Context, request *model.RegisterUserRequest) error {
 
@@ -43,7 +70,7 @@ func (uc *UserSessionUsecase) Register(ctx context.Context, request *model.Regis
 		Name:        request.Name,
 		Email:       request.Email,
 		Password:    hashedPassword,
-		Phonenumber: request.PhoneNumber,
+		PhoneNumber: request.PhoneNumber,
 	}
 
 	if err = uc.Repo.CreateUser(ctx, user); err != nil {
@@ -55,7 +82,10 @@ func (uc *UserSessionUsecase) Register(ctx context.Context, request *model.Regis
 	return nil
 }
 
-// user login
+/*
+		Login handles the user login process. It validates the login request, checks the user credentials,
+	 generates a session, creates access and refresh tokens, and sets the session ID in cookies.
+*/
 func (uc *UserSessionUsecase) Login(ctx context.Context, request *model.LoginUserRequest) (map[string]any, error) {
 	if ctx == nil {
 		return nil, errors.New("context is nil")

@@ -8,7 +8,7 @@ ORDER BY name;
 
 -- name: CreateUser :exec
 INSERT INTO users (
- id, name, email, password, phoneNumber
+ id, name, email, password, phone_number
 ) VALUES (
     $1, $2, $3, $4, $5
 ); 
@@ -17,7 +17,7 @@ INSERT INTO users (
 UPDATE users
   set name = $2,
   email = $3,
-  phoneNumber = $4
+  phone_number = $4
 WHERE id = $1;
 
 -- name: UpdateUserPassword :exec

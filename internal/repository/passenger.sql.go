@@ -8,6 +8,7 @@ package repository
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -21,7 +22,7 @@ RETURNING id, name, id_number, user_id, created_at, updated_at
 `
 
 type CreatePassengerParams struct {
-	ID       int64       `db:"id" json:"id"`
+	ID       uuid.UUID   `db:"id" json:"id"`
 	Name     string      `db:"name" json:"name"`
 	IDNumber string      `db:"id_number" json:"id_number"`
 	UserID   pgtype.UUID `db:"user_id" json:"user_id"`
@@ -51,7 +52,7 @@ DELETE FROM passengers
 WHERE id = $1
 `
 
-func (q *Queries) DeletePassenger(ctx context.Context, id int64) error {
+func (q *Queries) DeletePassenger(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deletePassenger, id)
 	return err
 }
@@ -61,7 +62,7 @@ SELECT id, name, id_number, user_id, created_at, updated_at FROM  passengers
 WHERE id = $1 LIMIT 1
 `
 
-func (q *Queries) GetPassenger(ctx context.Context, id int64) (Passenger, error) {
+func (q *Queries) GetPassenger(ctx context.Context, id uuid.UUID) (Passenger, error) {
 	row := q.db.QueryRow(ctx, getPassenger, id)
 	var i Passenger
 	err := row.Scan(
@@ -116,7 +117,7 @@ WHERE id = $1
 `
 
 type UpdatePassengerParams struct {
-	ID       int64       `db:"id" json:"id"`
+	ID       uuid.UUID   `db:"id" json:"id"`
 	Name     string      `db:"name" json:"name"`
 	IDNumber string      `db:"id_number" json:"id_number"`
 	UserID   pgtype.UUID `db:"user_id" json:"user_id"`

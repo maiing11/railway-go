@@ -32,19 +32,19 @@ func Boostrap(config BootstrapConfig) {
 	repo := repository.NewStore(config.DB, config.RedisClient)
 
 	// setup usecases
-	usecase := usecase.NewUsecase(repo, config.Log, config.Validate, config.TokenMaker, config.Config)
+	userSessionUC := usecase.NewUserSessionUsecase(repo, config.Log, config.Validate, config.TokenMaker, config.Config)
 
 	// setup controlers
-	controller := http.NewController(usecase, config.Log)
+	userSesioncontroller := http.NewUserSessionController(userSessionUC, config.Log)
 
 	// setup middlewares
-	middlewares := middleware.NewAuthMiddleware(*usecase, config.TokenMaker)
+	userSessionMiddlewares := middleware.NewAuthMiddleware(*userSessionUC, config.TokenMaker)
 
 	// setup routes
 	routeConfig := route.RouteConfig{
-		App:            config.App,
-		UserController: controller,
-		AuthMiddleware: middlewares,
+		App:                   config.App,
+		UserSessionController: userSesioncontroller,
+		AuthMiddleware:        userSessionMiddlewares,
 	}
 
 	routeConfig.Setup()

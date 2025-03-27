@@ -1,8 +1,6 @@
 package repository
 
 import (
-	"context"
-
 	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -10,21 +8,29 @@ import (
 // SQLStore provides all functions to execute SQL queries and transactions
 type Store interface {
 	Querier
-	ReservationSeatTX(ctx context.Context, arg CreateReservationParams) (ReservationTxResult, error)
 	SessionRepository
+	ReservationRepository
 }
 
 type SQLStore struct {
 	connPool *pgxpool.Pool
 	*Queries
-	*sessionRepository
+	*redisRepository
+}
+
+type redisRepository struct {
+	RedisClient *redis.Client
+}
+
+func NewRedis(redis *redis.Client) *redisRepository {
+	return &redisRepository{RedisClient: redis}
 }
 
 // NewStore creates a new store
 func NewStore(connPool *pgxpool.Pool, redis *redis.Client) Store {
 	return &SQLStore{
-		connPool:          connPool,
-		Queries:           New(connPool),
-		sessionRepository: &sessionRepository{RedisClient: redis},
+		connPool:        connPool,
+		Queries:         New(connPool),
+		redisRepository: NewRedis(redis),
 	}
 }

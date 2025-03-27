@@ -8,9 +8,9 @@ import (
 )
 
 type RouteConfig struct {
-	App            *fiber.App
-	UserController *http.Controllers
-	AuthMiddleware *middleware.AuthMiddleware
+	App                   *fiber.App
+	UserSessionController *http.UserSessionControllers
+	AuthMiddleware        *middleware.AuthMiddleware
 }
 
 func (c *RouteConfig) Setup() {
@@ -19,12 +19,12 @@ func (c *RouteConfig) Setup() {
 
 func (c *RouteConfig) SetupAuthRoute() {
 
-	c.App.Post("/register", c.UserController.Register)
-	c.App.Post("/login", c.UserController.Login)
+	c.App.Post("/register", c.UserSessionController.Register)
+	c.App.Post("/login", c.UserSessionController.Login)
 
 	c.App.Use("/guest", c.AuthMiddleware.GuestOnly())
-	// c.App.Post("/guest/session", c.UserController.)
+	// c.App.Post("/guest/session", c.UserSessionController.)
 
 	c.App.Use("/auth", c.AuthMiddleware.AuthRequired())
-	c.App.Post("/logout", c.UserController.Logout)
+	c.App.Post("/logout", c.UserSessionController.Logout)
 }
