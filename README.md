@@ -46,10 +46,11 @@ A clean-architecture backend API built in Go for a railway ticket reservation sy
 
 ## Framework & Library
 
-- HTTP Framework  : Fiber (https://gofiber.io/)                  
+- HTTP Framework  : Fiber (https://gofiber.io/)
+- Generate type-safe for sql : SQLC (https://github.com/sqlc-dev/sqlc)                  
 - Auth Tokens : PASETO (https://paseto.io/)                  
 - Session Store : Redis (https://github.com/redis/redis)      
-- Configuration : Viper (https://github.com/spf13/viper)     
+- Configuration : Viper (https://github.com/spf13/viper)   
 - Logging : Zap (https://github.com/uber-go/zap)       
 - Validation : Go Playground Validator (https://github.com/go-playground/validator)
 - Database Migration : Golang Migrate (https://github.com/golang-migrate/migrate)
