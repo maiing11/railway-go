@@ -13,17 +13,17 @@ import (
 
 const createSchedule = `-- name: CreateSchedule :one
 INSERT INTO schedules (
-   train_id, departure_time, arrival_time, available_seats, price, route_id
+   train_id, departure_date, arrival_date, available_seats, price, route_id
 ) VALUES (
     $1, $2, $3, $4, $5, $6
 )
-RETURNING id, train_id, route_id, departure_time, arrival_time, available_seats, price, created_at, updated_at
+RETURNING id, train_id, route_id, departure_date, arrival_date, available_seats, price, created_at, updated_at
 `
 
 type CreateScheduleParams struct {
 	TrainID        int64            `db:"train_id" json:"train_id"`
-	DepartureTime  pgtype.Timestamp `db:"departure_time" json:"departure_time"`
-	ArrivalTime    pgtype.Timestamp `db:"arrival_time" json:"arrival_time"`
+	DepartureDate  pgtype.Timestamp `db:"departure_date" json:"departure_date"`
+	ArrivalDate    pgtype.Timestamp `db:"arrival_date" json:"arrival_date"`
 	AvailableSeats int32            `db:"available_seats" json:"available_seats"`
 	Price          int64            `db:"price" json:"price"`
 	RouteID        int64            `db:"route_id" json:"route_id"`
@@ -32,8 +32,8 @@ type CreateScheduleParams struct {
 func (q *Queries) CreateSchedule(ctx context.Context, arg CreateScheduleParams) (Schedule, error) {
 	row := q.db.QueryRow(ctx, createSchedule,
 		arg.TrainID,
-		arg.DepartureTime,
-		arg.ArrivalTime,
+		arg.DepartureDate,
+		arg.ArrivalDate,
 		arg.AvailableSeats,
 		arg.Price,
 		arg.RouteID,
@@ -43,8 +43,8 @@ func (q *Queries) CreateSchedule(ctx context.Context, arg CreateScheduleParams) 
 		&i.ID,
 		&i.TrainID,
 		&i.RouteID,
-		&i.DepartureTime,
-		&i.ArrivalTime,
+		&i.DepartureDate,
+		&i.ArrivalDate,
 		&i.AvailableSeats,
 		&i.Price,
 		&i.CreatedAt,
@@ -64,7 +64,7 @@ func (q *Queries) DeleteSchedule(ctx context.Context, id int64) error {
 }
 
 const getSchedule = `-- name: GetSchedule :one
-SELECT id, train_id, route_id, departure_time, arrival_time, available_seats, price, created_at, updated_at FROM  schedules
+SELECT id, train_id, route_id, departure_date, arrival_date, available_seats, price, created_at, updated_at FROM  schedules
 WHERE id = $1 LIMIT 1
 `
 
@@ -75,8 +75,8 @@ func (q *Queries) GetSchedule(ctx context.Context, id int64) (Schedule, error) {
 		&i.ID,
 		&i.TrainID,
 		&i.RouteID,
-		&i.DepartureTime,
-		&i.ArrivalTime,
+		&i.DepartureDate,
+		&i.ArrivalDate,
 		&i.AvailableSeats,
 		&i.Price,
 		&i.CreatedAt,
@@ -86,25 +86,95 @@ func (q *Queries) GetSchedule(ctx context.Context, id int64) (Schedule, error) {
 }
 
 const listSchedules = `-- name: ListSchedules :many
-SELECT id, name, capacity, created_at, updated_at FROM trains
-ORDER BY name
+SELECT id, train_id, route_id, departure_date, arrival_date, available_seats, price, created_at, updated_at FROM schedules
+ORDER BY departure_date
 `
 
-func (q *Queries) ListSchedules(ctx context.Context) ([]Train, error) {
+func (q *Queries) ListSchedules(ctx context.Context) ([]Schedule, error) {
 	rows, err := q.db.Query(ctx, listSchedules)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Train{}
+	items := []Schedule{}
 	for rows.Next() {
-		var i Train
+		var i Schedule
 		if err := rows.Scan(
 			&i.ID,
-			&i.Name,
-			&i.Capacity,
+			&i.TrainID,
+			&i.RouteID,
+			&i.DepartureDate,
+			&i.ArrivalDate,
+			&i.AvailableSeats,
+			&i.Price,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchSchedules = `-- name: SearchSchedules :many
+SELECT 
+  s.id AS schedule_id,
+  t.name AS train_name,
+  r.source_station AS source_station,
+  r.destination_station AS destination_station,
+  s.departure_date,
+  s.arrival_date,
+  s.available_seats,
+  s.price
+FROM schedules s
+JOIN routes r ON s.route_id = r.id
+JOIN trains t ON s.train_id = t.id 
+WHERE 
+  source_station ILIKE '%' || $1 || '%' AND
+  destination_station ILIKE '%' || $2 || '%' AND
+  DATE(s.departure_date) = $3
+ORDER BY s.departure_date
+`
+
+type SearchSchedulesParams struct {
+	Column1       *string          `db:"column_1" json:"column_1"`
+	Column2       *string          `db:"column_2" json:"column_2"`
+	DepartureDate pgtype.Timestamp `db:"departure_date" json:"departure_date"`
+}
+
+type SearchSchedulesRow struct {
+	ScheduleID         int64            `db:"schedule_id" json:"schedule_id"`
+	TrainName          string           `db:"train_name" json:"train_name"`
+	SourceStation      string           `db:"source_station" json:"source_station"`
+	DestinationStation string           `db:"destination_station" json:"destination_station"`
+	DepartureDate      pgtype.Timestamp `db:"departure_date" json:"departure_date"`
+	ArrivalDate        pgtype.Timestamp `db:"arrival_date" json:"arrival_date"`
+	AvailableSeats     int32            `db:"available_seats" json:"available_seats"`
+	Price              int64            `db:"price" json:"price"`
+}
+
+func (q *Queries) SearchSchedules(ctx context.Context, arg SearchSchedulesParams) ([]SearchSchedulesRow, error) {
+	rows, err := q.db.Query(ctx, searchSchedules, arg.Column1, arg.Column2, arg.DepartureDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchSchedulesRow{}
+	for rows.Next() {
+		var i SearchSchedulesRow
+		if err := rows.Scan(
+			&i.ScheduleID,
+			&i.TrainName,
+			&i.SourceStation,
+			&i.DestinationStation,
+			&i.DepartureDate,
+			&i.ArrivalDate,
+			&i.AvailableSeats,
+			&i.Price,
 		); err != nil {
 			return nil, err
 		}
@@ -120,8 +190,8 @@ const updateSchedule = `-- name: UpdateSchedule :exec
 UPDATE schedules
   set train_id = $2,
   route_id = $3,
-  departure_time = $4,
-  arrival_time = $5,
+  departure_date = $4,
+  arrival_date = $5,
   price = $6,
   available_seats = $7
 WHERE id = $1
@@ -131,8 +201,8 @@ type UpdateScheduleParams struct {
 	ID             int64            `db:"id" json:"id"`
 	TrainID        int64            `db:"train_id" json:"train_id"`
 	RouteID        int64            `db:"route_id" json:"route_id"`
-	DepartureTime  pgtype.Timestamp `db:"departure_time" json:"departure_time"`
-	ArrivalTime    pgtype.Timestamp `db:"arrival_time" json:"arrival_time"`
+	DepartureDate  pgtype.Timestamp `db:"departure_date" json:"departure_date"`
+	ArrivalDate    pgtype.Timestamp `db:"arrival_date" json:"arrival_date"`
 	Price          int64            `db:"price" json:"price"`
 	AvailableSeats int32            `db:"available_seats" json:"available_seats"`
 }
@@ -142,8 +212,8 @@ func (q *Queries) UpdateSchedule(ctx context.Context, arg UpdateScheduleParams) 
 		arg.ID,
 		arg.TrainID,
 		arg.RouteID,
-		arg.DepartureTime,
-		arg.ArrivalTime,
+		arg.DepartureDate,
+		arg.ArrivalDate,
 		arg.Price,
 		arg.AvailableSeats,
 	)

@@ -8,62 +8,98 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
 	ApplyDiscountToReservation(ctx context.Context, arg ApplyDiscountToReservationParams) error
 	CancelReservation(ctx context.Context, id uuid.UUID) error
 	CheckSeatAvailability(ctx context.Context, arg CheckSeatAvailabilityParams) (int64, error)
-	CleanupExpiredHolds(ctx context.Context) error
 	CompletePayment(ctx context.Context, id uuid.UUID) error
+	// -- name: HoldSeat :exec
+	// INSERT INTO seat_holds (passenger_id, schedule_id, wagon_id, seat_id, expires_at)
+	// VALUES ($1, $2, $3, $4, NOW() + INTERVAL '15 minutes')
+	// RETURNING *;
+	// -- name: CreateReservationFromHold :one
+	// WITH deleted_hold AS (
+	//     DELETE FROM seat_holds
+	//     WHERE seat_holds.passenger_id = $1
+	//     AND seat_holds.schedule_id = $2
+	//     AND seat_holds.wagon_id = $3
+	//     AND seat_holds.seat_id = $4
+	//     RETURNING passenger_id, schedule_id, wagon_id, seat_id
+	// )
+	// INSERT INTO reservations (
+	//     id, passenger_id, schedule_id, wagon_id, seat_id, booking_date, reservation_status, discount_id, price, expires_at
+	// -- )
+	// SELECT
+	//     uuid_generate_v4(), deleted_hold.passenger_id, deleted_hold.schedule_id, deleted_hold.wagon_id, deleted_hold.seat_id,
+	//     NOW(), 'pending', $5, $6, NOW() + INTERVAL '15 minutes'
+	// FROM deleted_hold
+	// RETURNING *;
 	ConfirmReservation(ctx context.Context, id uuid.UUID) error
+	CountReservations(ctx context.Context) (int64, error)
 	CountUserByEmail(ctx context.Context, email string) (int64, error)
 	CreateDiscountCode(ctx context.Context, arg CreateDiscountCodeParams) (DiscountCode, error)
 	CreatePassenger(ctx context.Context, arg CreatePassengerParams) (Passenger, error)
-	CreatePayment(ctx context.Context, arg CreatePaymentParams) (Payment, error)
+	CreatePayment(ctx context.Context, arg CreatePaymentParams) error
 	CreateReservation(ctx context.Context, arg CreateReservationParams) (Reservation, error)
-	CreateReservationFromHold(ctx context.Context, arg CreateReservationFromHoldParams) (Reservation, error)
 	CreateRoute(ctx context.Context, arg CreateRouteParams) (Route, error)
 	CreateSchedule(ctx context.Context, arg CreateScheduleParams) (Schedule, error)
 	CreateSeat(ctx context.Context, arg CreateSeatParams) (Seat, error)
+	CreateStation(ctx context.Context, arg CreateStationParams) (Station, error)
 	CreateTrain(ctx context.Context, arg CreateTrainParams) (Train, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) error
 	CreateWagon(ctx context.Context, arg CreateWagonParams) (Wagon, error)
+	DecreaseWagonSeat(ctx context.Context, id int64) error
 	DeletePassenger(ctx context.Context, id uuid.UUID) error
 	DeletePayment(ctx context.Context, id uuid.UUID) error
 	DeleteReservation(ctx context.Context, id uuid.UUID) error
 	DeleteRoute(ctx context.Context, id int64) error
 	DeleteSchedule(ctx context.Context, id int64) error
 	DeleteSeat(ctx context.Context, id int64) error
+	DeleteStation(ctx context.Context, id int64) error
 	DeleteTrain(ctx context.Context, id int64) error
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 	DeleteWagon(ctx context.Context, id int64) error
-	ExpireSeatHolds(ctx context.Context) error
+	// -- name: CleanupExpiredHolds :exec
+	// DELETE FROM seat_holds WHERE expires_at < NOW();
+	// -- name: ExpireSeatHolds :exec
+	// DELETE FROM seat_holds
+	// WHERE expires_at < NOW();
 	ExpireUndpaidReservations(ctx context.Context) error
 	FailPayment(ctx context.Context, id uuid.UUID) error
 	GetDiscountByCode(ctx context.Context, code string) (DiscountCode, error)
-	GetDiscountsForReservation(ctx context.Context, reservationID uuid.UUID) ([]GetDiscountsForReservationRow, error)
+	GetDiscountByID(ctx context.Context, id uuid.UUID) (DiscountCode, error)
+	GetDiscountsForReservation(ctx context.Context, discountID uuid.UUID) ([]GetDiscountsForReservationRow, error)
+	GetExpiredPayments(ctx context.Context) ([]uuid.UUID, error)
 	GetFullReservation(ctx context.Context, id uuid.UUID) (GetFullReservationRow, error)
 	GetPassenger(ctx context.Context, id uuid.UUID) (Passenger, error)
+	GetPassengerByUser(ctx context.Context, userID pgtype.UUID) (Passenger, error)
 	GetPayment(ctx context.Context, id uuid.UUID) (Payment, error)
+	GetReservation(ctx context.Context, id uuid.UUID) (Reservation, error)
 	GetRoute(ctx context.Context, id int64) (Route, error)
 	GetSchedule(ctx context.Context, id int64) (Schedule, error)
 	GetSeat(ctx context.Context, id int64) (Seat, error)
+	GetStation(ctx context.Context, id int64) (Station, error)
+	GetStationByCode(ctx context.Context, code string) (Station, error)
+	GetStationByName(ctx context.Context, stationName string) (Station, error)
 	GetTrain(ctx context.Context, id int64) (Train, error)
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetWagon(ctx context.Context, id int64) (Wagon, error)
-	HoldSeat(ctx context.Context, arg HoldSeatParams) error
 	ListPassengers(ctx context.Context) ([]Passenger, error)
 	ListPayments(ctx context.Context) ([]Payment, error)
-	ListReservations(ctx context.Context, arg ListReservationsParams) ([]Reservation, error)
+	ListReservations(ctx context.Context, arg ListReservationsParams) ([]ListReservationsRow, error)
 	ListRoute(ctx context.Context) ([]Route, error)
-	ListSchedules(ctx context.Context) ([]Train, error)
-	ListSeats(ctx context.Context) ([]Seat, error)
+	ListSchedules(ctx context.Context) ([]Schedule, error)
+	ListSeats(ctx context.Context, wagonID *int64) ([]Seat, error)
+	ListStations(ctx context.Context) ([]Station, error)
 	ListTrains(ctx context.Context) ([]Train, error)
 	ListUsers(ctx context.Context) ([]User, error)
-	ListWagons(ctx context.Context) ([]Wagon, error)
+	ListWagons(ctx context.Context, trainID int64) ([]Wagon, error)
 	ReduceDiscountUsage(ctx context.Context, id uuid.UUID) error
+	SearchSchedules(ctx context.Context, arg SearchSchedulesParams) ([]SearchSchedulesRow, error)
 	UpdateDiscountCode(ctx context.Context, arg UpdateDiscountCodeParams) error
 	UpdatePassenger(ctx context.Context, arg UpdatePassengerParams) error
 	UpdatePayment(ctx context.Context, arg UpdatePaymentParams) error
@@ -71,6 +107,7 @@ type Querier interface {
 	UpdateRoute(ctx context.Context, arg UpdateRouteParams) error
 	UpdateSchedule(ctx context.Context, arg UpdateScheduleParams) error
 	UpdateSeat(ctx context.Context, arg UpdateSeatParams) error
+	UpdateStation(ctx context.Context, arg UpdateStationParams) error
 	UpdateTrain(ctx context.Context, arg UpdateTrainParams) error
 	UpdateTrainCapacity(ctx context.Context, id int64) error
 	UpdateUser(ctx context.Context, arg UpdateUserParams) error

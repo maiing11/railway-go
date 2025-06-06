@@ -74,11 +74,12 @@ func (q *Queries) GetSeat(ctx context.Context, id int64) (Seat, error) {
 
 const listSeats = `-- name: ListSeats :many
 SELECT id, wagon_id, seat_number, seat_row, is_available, created_at, updated_at FROM seats
-ORDER BY id
+WHERE wagon_id = $1
+ORDER BY seat_number, seat_row
 `
 
-func (q *Queries) ListSeats(ctx context.Context) ([]Seat, error) {
-	rows, err := q.db.Query(ctx, listSeats)
+func (q *Queries) ListSeats(ctx context.Context, wagonID *int64) ([]Seat, error) {
+	rows, err := q.db.Query(ctx, listSeats, wagonID)
 	if err != nil {
 		return nil, err
 	}

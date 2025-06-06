@@ -28,8 +28,8 @@ func (q *Queries) ApplyDiscountToReservation(ctx context.Context, arg ApplyDisco
 }
 
 const createDiscountCode = `-- name: CreateDiscountCode :one
-INSERT INTO discount_codes (code, discount_percent, expires_at, max_uses)
-VALUES ($1, $2, $3, $4)
+INSERT INTO discount_codes (code, discount_percent, expires_at, max_uses, created_at)
+VALUES ($1, $2, $3, $4, now())
 RETURNING id, code, discount_percent, max_uses, expires_at, created_at, updated_at
 `
 
@@ -80,11 +80,31 @@ func (q *Queries) GetDiscountByCode(ctx context.Context, code string) (DiscountC
 	return i, err
 }
 
+const getDiscountByID = `-- name: GetDiscountByID :one
+SELECT id, code, discount_percent, max_uses, expires_at, created_at, updated_at FROM discount_codes
+WHERE id = $1 LIMIT 1
+`
+
+func (q *Queries) GetDiscountByID(ctx context.Context, id uuid.UUID) (DiscountCode, error) {
+	row := q.db.QueryRow(ctx, getDiscountByID, id)
+	var i DiscountCode
+	err := row.Scan(
+		&i.ID,
+		&i.Code,
+		&i.DiscountPercent,
+		&i.MaxUses,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getDiscountsForReservation = `-- name: GetDiscountsForReservation :many
 SELECT dc.id, dc.code, dc.discount_percent, dc.expires_at, dc.max_uses
 FROM discount_codes dc
 JOIN reservation_discounts rd ON dc.id = rd.discount_id
-WHERE rd.reservation_id = $1
+WHERE discount_id = $1
 `
 
 type GetDiscountsForReservationRow struct {
@@ -95,8 +115,8 @@ type GetDiscountsForReservationRow struct {
 	MaxUses         int32            `db:"max_uses" json:"max_uses"`
 }
 
-func (q *Queries) GetDiscountsForReservation(ctx context.Context, reservationID uuid.UUID) ([]GetDiscountsForReservationRow, error) {
-	rows, err := q.db.Query(ctx, getDiscountsForReservation, reservationID)
+func (q *Queries) GetDiscountsForReservation(ctx context.Context, discountID uuid.UUID) ([]GetDiscountsForReservationRow, error) {
+	rows, err := q.db.Query(ctx, getDiscountsForReservation, discountID)
 	if err != nil {
 		return nil, err
 	}

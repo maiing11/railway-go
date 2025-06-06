@@ -7,9 +7,8 @@ SELECT * FROM passengers
 ORDER BY name;
 
 -- name: CreatePassenger :one
-INSERT INTO passengers (
-  id, name, id_number, user_id
-) VALUES (
+INSERT INTO passengers (id, name, id_number, user_id) 
+VALUES (
   $1, $2, $3, $4
 )
 RETURNING *;
@@ -25,3 +24,7 @@ WHERE id = $1;
 -- name: DeletePassenger :exec
 DELETE FROM passengers
 WHERE id = $1;
+
+-- name: GetPassengerByUser :one
+SELECT * FROM passengers
+WHERE user_id = $1;

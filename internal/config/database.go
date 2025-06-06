@@ -13,11 +13,13 @@ import (
 )
 
 func NewDatabase(v *viper.Viper, log *zap.Logger) (*pgxpool.Pool, error) {
+	v.BindEnv("database.port", "DB_PORT")
+	v.BindEnv("database.name", "DB_NAME")
+	database := v.GetString("database.name")
 	username := v.GetString("database.username")
+	port := v.GetInt("database.port")
 	password := v.GetString("database.password")
 	host := v.GetString("database.host")
-	port := v.GetInt("database.port")
-	database := v.GetString("database.name")
 	// idleConnection := v.GetInt("database.pool.idle")
 	maxConnection := v.GetInt("database.pool.max")
 	// maxLifeTimeConnection := v.GetInt("database.pool.lifetime")

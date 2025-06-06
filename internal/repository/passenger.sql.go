@@ -13,9 +13,8 @@ import (
 )
 
 const createPassenger = `-- name: CreatePassenger :one
-INSERT INTO passengers (
-  id, name, id_number, user_id
-) VALUES (
+INSERT INTO passengers (id, name, id_number, user_id) 
+VALUES (
   $1, $2, $3, $4
 )
 RETURNING id, name, id_number, user_id, created_at, updated_at
@@ -64,6 +63,25 @@ WHERE id = $1 LIMIT 1
 
 func (q *Queries) GetPassenger(ctx context.Context, id uuid.UUID) (Passenger, error) {
 	row := q.db.QueryRow(ctx, getPassenger, id)
+	var i Passenger
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.IDNumber,
+		&i.UserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getPassengerByUser = `-- name: GetPassengerByUser :one
+SELECT id, name, id_number, user_id, created_at, updated_at FROM passengers
+WHERE user_id = $1
+`
+
+func (q *Queries) GetPassengerByUser(ctx context.Context, userID pgtype.UUID) (Passenger, error) {
+	row := q.db.QueryRow(ctx, getPassengerByUser, userID)
 	var i Passenger
 	err := row.Scan(
 		&i.ID,

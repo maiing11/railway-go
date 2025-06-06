@@ -11,9 +11,9 @@ import (
 
 const createRoute = `-- name: CreateRoute :one
 INSERT INTO routes (
-   source_station, destination_station, travel_time
+   source_station, destination_station, travel_time, created_at
 ) VALUES (
-    $1, $2, $3
+    $1, $2, $3, now()
 )
 RETURNING id, source_station, destination_station, travel_time, created_at, updated_at
 `
@@ -102,7 +102,9 @@ func (q *Queries) ListRoute(ctx context.Context) ([]Route, error) {
 const updateRoute = `-- name: UpdateRoute :exec
 UPDATE routes
   set source_station = $2,
-  destination_station = $3
+  destination_station = $3,
+  travel_time = $4,
+  updated_at = now()
 WHERE id = $1
 `
 
@@ -110,9 +112,15 @@ type UpdateRouteParams struct {
 	ID                 int64  `db:"id" json:"id"`
 	SourceStation      string `db:"source_station" json:"source_station"`
 	DestinationStation string `db:"destination_station" json:"destination_station"`
+	TravelTime         int32  `db:"travel_time" json:"travel_time"`
 }
 
 func (q *Queries) UpdateRoute(ctx context.Context, arg UpdateRouteParams) error {
-	_, err := q.db.Exec(ctx, updateRoute, arg.ID, arg.SourceStation, arg.DestinationStation)
+	_, err := q.db.Exec(ctx, updateRoute,
+		arg.ID,
+		arg.SourceStation,
+		arg.DestinationStation,
+		arg.TravelTime,
+	)
 	return err
 }

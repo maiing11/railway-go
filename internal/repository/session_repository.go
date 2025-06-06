@@ -62,7 +62,7 @@ func (r *redisRepository) GetSessionByRefreshToken(ctx context.Context, refreshT
 
 func (r *redisRepository) UpdateSessionAccessToken(ctx context.Context, sessionID string, newAccessToken string, newExpiresAt time.Time) error {
 	sessionKey := "session:" + sessionID
-	updateData := map[string]interface{}{
+	updateData := map[string]any{
 		"access_token": newAccessToken,
 		"expires_at":   newExpiresAt.Format(time.RFC3339),
 	}

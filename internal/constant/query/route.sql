@@ -8,16 +8,18 @@ ORDER BY id;
 
 -- name: CreateRoute :one
 INSERT INTO routes (
-   source_station, destination_station, travel_time
+   source_station, destination_station, travel_time, created_at
 ) VALUES (
-    $1, $2, $3
+    $1, $2, $3, now()
 )
 RETURNING *;
 
 -- name: UpdateRoute :exec
 UPDATE routes
   set source_station = $2,
-  destination_station = $3
+  destination_station = $3,
+  travel_time = $4,
+  updated_at = now()
 WHERE id = $1;
 
 

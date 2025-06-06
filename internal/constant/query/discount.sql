@@ -15,11 +15,11 @@ WHERE id = $1;
 SELECT dc.id, dc.code, dc.discount_percent, dc.expires_at, dc.max_uses
 FROM discount_codes dc
 JOIN reservation_discounts rd ON dc.id = rd.discount_id
-WHERE rd.reservation_id = $1;
+WHERE discount_id = $1;
 
 -- name: CreateDiscountCode :one
-INSERT INTO discount_codes (code, discount_percent, expires_at, max_uses)
-VALUES ($1, $2, $3, $4)
+INSERT INTO discount_codes (code, discount_percent, expires_at, max_uses, created_at)
+VALUES ($1, $2, $3, $4, now())
 RETURNING *;
 
 -- name: UpdateDiscountCode :exec
@@ -30,3 +30,7 @@ expires_at = $4,
 max_uses = $5,
 updated_at = NOW()
 WHERE id = $1;
+
+-- name: GetDiscountByID :one
+SELECT * FROM discount_codes
+WHERE id = $1 LIMIT 1;

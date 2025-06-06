@@ -9,60 +9,72 @@ import (
 	"railway-go/internal/utils/token"
 	"time"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
+type UserSessionUC interface {
+	Register(ctx context.Context, request *model.RegisterUserRequest) error
+	Login(ctx context.Context, request *model.LoginUserRequest) (map[string]any, error)
+	Logout(ctx context.Context, sessionID string) error
+	RenewAccessToken(ctx context.Context, refreshToken string) (string, error)
+	CreateGuestSession(ctx context.Context) (model.Session, error)
+	GetSession(ctx context.Context, sessionID string) (model.Session, error)
+	RegisterAdmin(ctx context.Context, request *model.RegisterAdminRequest) error
+	GetUserIDFromSession(ctx context.Context, sessionID string) (*uuid.UUID, error)
+}
+
 type UserSessionUsecase struct {
-	Repo       repository.Store
-	Logger     *zap.Logger
-	Validate   *validator.Validate
+	*UseCase
 	TokenMaker token.Maker
 	config     *viper.Viper
 }
 
 func NewUserSessionUsecase(
-	repo repository.Store,
-	logger *zap.Logger,
-	validate *validator.Validate,
+	useCase *UseCase,
 	tokenMaker token.Maker,
 	config *viper.Viper,
 ) *UserSessionUsecase {
 	return &UserSessionUsecase{
-		Repo:       repo,
-		Logger:     logger,
-		Validate:   validate,
+		UseCase:    useCase,
 		TokenMaker: tokenMaker,
 		config:     config,
 	}
 }
 
 func (uc *UserSessionUsecase) Register(ctx context.Context, request *model.RegisterUserRequest) error {
-
-	err := uc.Validate.Struct(request)
+	tx, err := uc.Repo.BeginTransaction(ctx)
 	if err != nil {
-		uc.Logger.Warn("invalid request body: ", zap.Error(err))
-		return fiber.ErrBadRequest
-	}
-
-	count, err := uc.Repo.CountUserByEmail(ctx, request.Email)
-	if err != nil {
-		uc.Logger.Warn("failed to count user from database", zap.Error(err))
+		uc.Log.Warn("failed to begin transaction", zap.Error(err))
 		return fiber.ErrInternalServerError
 	}
 
+	defer func() {
+		if err != nil {
+			tx.Rollback(ctx)
+		}
+	}()
+
+	err = uc.Validate.Struct(request)
+	if err != nil {
+
+		return utils.WrapError(fiber.StatusInternalServerError, uc.Log, utils.Error, err, "invalid request body")
+	}
+
+	count, err := tx.CountUserByEmail(ctx, request.Email)
+	if err != nil {
+		return utils.WrapError(fiber.StatusInternalServerError, uc.Log, utils.Error, err, "failed to count user from database")
+	}
+
 	if count > 0 {
-		uc.Logger.Warn("email already exists", zap.String("email", request.Email))
-		return fiber.ErrConflict
+		return utils.WrapError(fiber.StatusConflict, uc.Log, utils.Error, err, "email already exists")
 	}
 
 	hashedPassword, err := utils.HashPassword(request.Password)
 	if err != nil {
-		uc.Logger.Warn("failed to hash password", zap.Error(err))
-		return fiber.ErrInternalServerError
+		return utils.WrapError(fiber.StatusInternalServerError, uc.Log, utils.Error, err, "failed to hash password")
 	}
 	id := uuid.New()
 	user := repository.CreateUserParams{
@@ -73,12 +85,15 @@ func (uc *UserSessionUsecase) Register(ctx context.Context, request *model.Regis
 		PhoneNumber: request.PhoneNumber,
 	}
 
-	if err = uc.Repo.CreateUser(ctx, user); err != nil {
-		uc.Logger.Warn("failed to create user", zap.Error(err))
-		return fiber.ErrInternalServerError
+	if err = tx.CreateUser(ctx, user); err != nil {
+		return utils.WrapError(fiber.StatusInternalServerError, uc.Log, utils.Error, err, "failed to create user")
 	}
 
-	uc.Logger.Info("user registered successfully", zap.String("email", user.Email))
+	if err := tx.Commit(ctx); err != nil {
+		return utils.WrapError(fiber.StatusInternalServerError, uc.Log, utils.Error, err, "failed to commit transaction")
+	}
+
+	uc.Log.Info("user registered successfully", zap.String("email", user.Email))
 	return nil
 }
 
@@ -86,31 +101,47 @@ func (uc *UserSessionUsecase) Register(ctx context.Context, request *model.Regis
 		Login handles the user login process. It validates the login request, checks the user credentials,
 	 generates a session, creates access and refresh tokens, and sets the session ID in cookies.
 */
+
+func nullUserRoleToString(role repository.NullUserRole) string {
+	if role.Valid {
+		return string(role.UserRole)
+	}
+	return "user"
+}
+
 func (uc *UserSessionUsecase) Login(ctx context.Context, request *model.LoginUserRequest) (map[string]any, error) {
+	tx, err := uc.Repo.BeginTransaction(ctx)
+	if err != nil {
+		return nil, utils.WrapError(fiber.StatusInternalServerError, uc.Log, utils.Error, err, "failed to begin transaction")
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback(ctx)
+		}
+	}()
+
 	if ctx == nil {
-		return nil, errors.New("context is nil")
+		return nil, utils.WrapError(fiber.StatusBadRequest, uc.Log, utils.Error, err, "context is nil")
 	}
 
 	fiberCtx, ok := ctx.Value("fiberCtx").(*fiber.Ctx)
 	if !ok || fiberCtx == nil {
-		return nil, errors.New("fiber.Ctx is missing in context")
+		return nil, fiber.NewError(fiber.StatusBadRequest, "fiber context is nil")
 	}
 
 	if err := uc.Validate.Struct(request); err != nil {
-		uc.Logger.Warn("invalid request body", zap.Any("request", request))
-		return nil, fiber.ErrBadRequest
+		return nil, utils.WrapError(fiber.StatusBadRequest, uc.Log, utils.Error, err, "invalid request body")
 	}
 
-	user, err := uc.Repo.GetUserByEmail(ctx, request.Email)
+	user, err := tx.GetUserByEmail(ctx, request.Email)
 	if err != nil {
-		uc.Logger.Warn("failed find user", zap.String("email", request.Email))
-		return nil, fiber.ErrUnauthorized
+		return nil, utils.WrapError(fiber.StatusUnauthorized, uc.Log, utils.Error, err, "user not found")
 	}
 
 	err = utils.CheckPassword(request.Password, user.Password)
 	if err != nil {
-		uc.Logger.Warn("failed to compare user password with bycrype hash", zap.Error(err))
-		return nil, fiber.ErrUnauthorized
+		return nil, utils.WrapError(fiber.StatusUnauthorized, uc.Log, utils.Error, err, "invalid password")
 	}
 
 	// generate session
@@ -118,37 +149,41 @@ func (uc *UserSessionUsecase) Login(ctx context.Context, request *model.LoginUse
 		ID:           uuid.NewString(),
 		RefreshToken: "",
 		UserID:       &user.ID,
-		Role:         "user",
+		Role:         nullUserRoleToString(user.Role),
+		UserAgent:    fiberCtx.Get("User-Agent"),
+		ClientIP:     fiberCtx.IP(),
 		IsBlocked:    false,
 		ExpiresAt:    time.Now().Add(uc.config.GetDuration("Token.RefreshTokenDuration")),
 	}
 
+	// commit
+	if err := tx.Commit(ctx); err != nil {
+		return nil, utils.WrapError(fiber.StatusInternalServerError, uc.Log, utils.Error, err, "failed to commit transaction")
+	}
+
+	// save session in redis
 	if err := uc.Repo.CreateSession(ctx, session); err != nil {
-		uc.Logger.Error("failed to save session", zap.Error(err))
-		return nil, err
+		return nil, utils.WrapError(fiber.StatusInternalServerError, uc.Log, utils.Error, err, "failed to create session")
 	}
 
 	// generate tokens with sesssion ID
 	accessDuration := uc.config.GetDuration("Token.AccessTokenDuration")
 	accessToken, accessPayload, err := uc.TokenMaker.CreateToken(&user.ID, session.ID, session.Role, accessDuration)
 	if err != nil {
-		uc.Logger.Error("failed to create token", zap.Error(err))
-		return nil, fiber.ErrInternalServerError
+		return nil, utils.WrapError(fiber.StatusInternalServerError, uc.Log, utils.Error, err, "failed to create access token")
 	}
-	// uc.Logger.Info("generate access token", zap.Any("payload", accessToken))
+	// uc.Log.Info("generate access token", zap.Any("payload", accessToken))
 
 	refreshDuration := uc.config.GetDuration("Token.RefreshTokenDuration")
 	refreshToken, refreshPayload, err := uc.TokenMaker.CreateToken(&user.ID, session.ID, session.Role, refreshDuration)
 	if err != nil {
-		uc.Logger.Error("failed to create refresh token", zap.Error(err))
-		return nil, fiber.ErrInternalServerError
+		return nil, utils.WrapError(fiber.StatusInternalServerError, uc.Log, utils.Error, err, "failed to create refresh token")
 	}
 
 	// update session with refresh token
 	session.RefreshToken = refreshToken
 	if err := uc.Repo.UpdateSessionAccessToken(ctx, session.ID, accessToken, session.ExpiresAt); err != nil {
-		uc.Logger.Error("failed to update session", zap.Error(err))
-		return nil, fiber.ErrInternalServerError
+		return nil, utils.WrapError(fiber.StatusInternalServerError, uc.Log, utils.Error, err, "failed to update session with new access token")
 	}
 
 	// set session ID in cookies
@@ -174,35 +209,87 @@ func (uc *UserSessionUsecase) Login(ctx context.Context, request *model.LoginUse
 		"access_payload":  accessPayload,
 		"refresh_payload": refreshPayload,
 	}
-	uc.Logger.Info("Login successful", zap.Any("userID", user.ID))
+	uc.Log.Info("Login successful", zap.Any("userID", user.ID))
 	return response, nil
 
 }
 
-// func (u *UserSessionUsecase) ForgotPassword(ctx context.Context, email string) error {
-// 	user, err := u.Repo.GetUserByEmail(ctx, email)
-// }
+//	func (u *UserSessionUsecase) ForgotPassword(ctx context.Context, email string) error {
+//		user, err := u.Repo.GetUserByEmail(ctx, email)
+//	}
+//
 
-func (u *UserSessionUsecase) Logout(ctx context.Context, sessionID string) error {
-	if sessionID == "" {
-		u.Logger.Error("Session ID is empty")
-		return errors.New("invalid session")
-
-	}
-	err := u.Repo.DeleteSession(ctx, sessionID)
+func (uc *UserSessionUsecase) RegisterAdmin(ctx context.Context, request *model.RegisterAdminRequest) error {
+	tx, err := uc.Repo.BeginTransaction(ctx)
 	if err != nil {
-		u.Logger.Error("Failed to log out", zap.String("sessionID", sessionID), zap.Error(err))
-		return err
+		uc.Log.Warn("failed to begin transaction", zap.Error(err))
+		return fiber.ErrInternalServerError
 	}
-	u.Logger.Info("User logged out successfully", zap.String("sessionID", sessionID))
+
+	defer func() {
+		if err != nil {
+			tx.Rollback(ctx)
+		}
+	}()
+
+	if err := uc.Validate.Struct(request); err != nil {
+		uc.Log.Warn("invalid request body", zap.Any("request", request))
+		return fiber.ErrBadRequest
+	}
+
+	count, err := tx.CountUserByEmail(ctx, request.Email)
+	if err != nil {
+		uc.Log.Warn("failed to count user from database", zap.Error(err))
+		return fiber.ErrInternalServerError
+	}
+
+	if count > 0 {
+		uc.Log.Warn("email already exists", zap.String("email", request.Email))
+		return fiber.ErrConflict
+	}
+
+	hashedPassword, err := utils.HashPassword(request.Password)
+	if err != nil {
+		uc.Log.Warn("failed to hash password", zap.Error(err))
+		return fiber.ErrInternalServerError
+	}
+	role := repository.NullUserRole{UserRole: repository.UserRole(request.Role), Valid: true}
+
+	id := uuid.New()
+	user := repository.CreateUserParams{
+		ID:          id,
+		Name:        request.Name,
+		Email:       request.Email,
+		Password:    hashedPassword,
+		Role:        role,
+		PhoneNumber: request.PhoneNumber,
+	}
+
+	if err = tx.CreateUser(ctx, user); err != nil {
+		uc.Log.Warn("failed to create user", zap.Error(err))
+		return fiber.ErrInternalServerError
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		uc.Log.Warn("failed to commit transaction", zap.Error(err))
+		return fiber.ErrInternalServerError
+	}
+
+	uc.Log.Info("user registered successfully", zap.String("email", user.Email))
 	return nil
 }
 
-func (u *UserSessionUsecase) GetSession(ctx context.Context, sessionID string) (*model.Session, error) {
-	session, err := u.Repo.GetSessionByID(ctx, sessionID)
-	if err != nil {
-		u.Logger.Error("Failed to get session", zap.String("sessionID", sessionID), zap.Error(err))
-		return nil, err
+func (uc *UserSessionUsecase) Logout(ctx context.Context, sessionID string) error {
+	if sessionID == "" {
+		uc.Log.Error("Session ID is empty")
+		return errors.New("invalid session")
+
 	}
-	return session, nil
+	err := uc.Repo.DeleteSession(ctx, sessionID)
+	if err != nil {
+		uc.Log.Error("Failed to log out", zap.String("sessionID", sessionID), zap.Error(err))
+		return err
+	}
+	uc.Log.Info("User logged out successfully", zap.String("sessionID", sessionID))
+	return nil
 }

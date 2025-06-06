@@ -32,7 +32,6 @@ func main() {
 
 	// Initialize Token Manager (PASETO)
 	tokenSecret := viperConfig.GetString("token.secret")
-	fmt.Println("Token Secret Length:", len(tokenSecret))
 
 	tokenMaker, err := token.NewTokenManager(tokenSecret)
 	if err != nil {

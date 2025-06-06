@@ -21,14 +21,13 @@ func NewViper() *viper.Viper {
 
 	config.SetConfigName("config")
 	config.SetConfigType("json")
-	config.AddConfigPath("./../../")
+	config.AddConfigPath(".")
+	config.AddConfigPath("..")
+	config.AddConfigPath("/")
+	err := config.ReadInConfig()
 
-	if err := config.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			fmt.Println("Config file not found; using default configuration")
-		} else {
-			panic(fmt.Errorf("fatal error config file: %w", err))
-		}
+	if err != nil {
+		panic(fmt.Errorf("fatal error config file: %w", err))
 	}
 
 	return config

@@ -5,4 +5,9 @@ DROP TABLE IF EXISTS trains;
 DROP TABLE IF EXISTS routes;
 DROP TABLE IF EXISTS schedules;
 DROP TABLE IF EXISTS payments;
+DROP TABLE IF EXISTS stations;
+DROP TYPE IF EXISTS wagons;
+DROP TYPE IF EXISTS discount_codes;
+DROP TYPE IF EXISTS seats;
+DROP TYPE IF EXISTS reservation_discount;
 

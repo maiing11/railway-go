@@ -1,0 +1,36 @@
+{
+    "app" : {
+        "name":"railway-tiket-go"
+    },
+    "web" : {
+        "prefork" : false,
+        "port" : 3000
+
+    },
+    "database" : {
+        "username":"root",
+        "password":"user",
+        "host":"db",
+        "port":5432,
+        "name":"railway_tiket",
+        "pool": {
+            "idle" : 10,
+            "max" : 100,
+            "lifetime" : 300
+
+        },
+        "sslmode":"disable"
+    },
+    "token" : { 
+        "secret" : "your-32-character-long-secret-ke",
+        "AccessTokenDuration" : "15m",
+        "RefreshTokenDuration" : "24h"
+},
+    "redis" : {
+        "host" : "localhost",
+        "port" : 6379,
+        "password" : "",
+        "db" : 0
+    }
+
+}

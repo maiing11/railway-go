@@ -1,0 +1,3740 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Railway Ticket Go",
+    "description": "RESTful API for train ticket booking system built with Go-Fiber, PostgreSQL, Redis, and PASETO.",
+    "termsOfService": "https://github.com/maiing11/railway-go",
+    "version": "1.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000"
+    }
+  ],
+  "paths": {
+    "/users/register": {
+      "post": {
+        "tags": [
+          "User API"
+        ],
+        "summary": "Register new user",
+        "description": "Create new user/customer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successfull created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/uses/register/_admin": {
+      "post": {
+        "tags": [
+          "User API"
+        ],
+        "summary": "Register new admin or general affairs",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterAdminRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/login": {
+      "post": {
+        "tags": [
+          "User API"
+        ],
+        "summary": "User login",
+        "description": "Authenticate user and return tokens",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful login",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/logout": {
+      "post": {
+        "tags": [
+          "User API"
+        ],
+        "summary": "Logout user",
+        "description": "Logs out the user by invalidating the session. Requires session_id cookie.",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "session_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Session ID from login"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User logged out successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebResponse",
+                  "description": "Standard response for logout operation. Contains data type string",
+                  "example": "User logged out successfully"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Session ID not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/reservations": {
+      "get": {
+        "tags": [
+          "Reservation API"
+        ],
+        "summary": "List all reservations (admin only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/Auth"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully get reservations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListReservationsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/reservations": {
+      "post": {
+        "tags": [
+          "Reservation API"
+        ],
+        "summary": "Create reservation",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/Auth",
+            "description": "If you are a guest, you can proceed without authentication. Otherwise, provide the Authorization token in the header."
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReservationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reservation created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reservation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Reservation API"
+        ],
+        "summary": "Get Reservation by id",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "session_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Session ID from login"
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "type": "string",
+              "example": "token"
+            },
+            "required": true,
+            "description": "Token Authorization"
+          },
+          {
+            "in": "query",
+            "name": "id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Reservation_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully get reservation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reservation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to get reservation)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Reservation API"
+        ],
+        "summary": "Delete reservation by id",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId",
+            "description": "reservation id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully deleted reservation id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "string",
+                      "example": "successfully deleted reservation_id"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to delete reservation)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/reservations/_canceled": {
+      "put": {
+        "tags": [
+          "Reservation API"
+        ],
+        "summary": "Canceling reservation status by reservation id",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId",
+            "description": "reservation id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "update reservation status to \"canceled\"",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "string",
+                      "example": "successfully canceled status reservation"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to delete reservation)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/reservations/payments": {
+      "post": {
+        "tags": [
+          "Payments API"
+        ],
+        "summary": "Create mock payments",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "payment successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "string",
+                      "example": "payment successfull"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/schedules": {
+      "get": {
+        "tags": [
+          "Schedule API"
+        ],
+        "summary": "Get schedule by id",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId",
+            "description": "schedule id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "get schedule reservation success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to get schedule)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/schedules/search": {
+      "get": {
+        "tags": [
+          "Schedule API"
+        ],
+        "summary": "search schedule",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchScheduleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search train schedule by source_station and destination_station",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchScheduleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to search schedule)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/passengers": {
+      "post": {
+        "tags": [
+          "Passenger API"
+        ],
+        "summary": "Create new passenger",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth",
+            "description": "If you are a guest, you can proceed without authentication. Otherwise, provide the Authorization token in the header."
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PassengerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "success created passenger",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Passenger"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "default": {
+            "description": "Unexpected error (failed to create passenger)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Passenger API"
+        ],
+        "summary": "get passenger by id",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth",
+            "description": "If you are a guest, you can proceed without authentication. Otherwise, provide the Authorization token in the header."
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully get passenger",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Passenger"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": ""
+          },
+          "default": {
+            "description": "Unexpected error (failed to get passenger)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Passenger API"
+        ],
+        "summary": "Update passenger",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth",
+            "description": "If you are a guest, you can proceed without authentication. Otherwise, provide the Authorization token in the header."
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PassengerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "successfully update passenger",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Passenger"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": ""
+          },
+          "default": {
+            "description": "Unexpected error (failed to update passenger)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Passenger API"
+        ],
+        "summary": "Delete Passenger by id",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth",
+            "description": "If you are a guest, you can proceed without authentication. Otherwise, provide the Authorization token in the header."
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully deleted passenger",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "type": "string",
+                      "example": "successfully deleted passenger"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": ""
+          },
+          "default": {
+            "description": "Unexpected error (failed to delete passenger)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ga/schedules": {
+      "post": {
+        "tags": [
+          "Schedule API"
+        ],
+        "summary": "Create new schedule (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "successfully create schedule",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to create schedule)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Schedule API"
+        ],
+        "summary": "Update schedule (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "successfully updated schedule",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to update schedule)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Schedule API"
+        ],
+        "summary": "Delete schedule (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully deleted schedule",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "type": "string",
+                      "example": "successfully deleted schedule"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to deleted schedule)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ga/train_routes": {
+      "post": {
+        "tags": [
+          "Train routes API"
+        ],
+        "summary": "Create new train routes",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RouteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "successfully create Routes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Route"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to create Routes)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Train routes API"
+        ],
+        "summary": "get train routes by id (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully get train routes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Route"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": ""
+          },
+          "default": {
+            "description": "Unexpected error (failed to get train routes)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Train routes API"
+        ],
+        "summary": "Update train routes (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RouteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "successfully updated train routes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to update train routes)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Train routes API"
+        ],
+        "summary": "Delete train routes by id (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully deleted train routes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "type": "string",
+                      "example": "successfully deleted train routes"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to deleted train routes)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ga/train_routes/list": {
+      "get": {
+        "tags": [
+          "Train routes API"
+        ],
+        "summary": "List all train routes (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully List train routes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Route"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to list train routes)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ga/train_seats": {
+      "post": {
+        "tags": [
+          "Train seat API"
+        ],
+        "summary": "Create new train seats",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeatRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "successfully create seat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Seat"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to create Seat)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Train seat API"
+        ],
+        "summary": "get train seats by id (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully get train seat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Seat"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": ""
+          },
+          "default": {
+            "description": "Unexpected error (failed to get train seat)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Train seat API"
+        ],
+        "summary": "Update train seat (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeatRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "successfully updated train seat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Seat"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to update train seat)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Train seat API"
+        ],
+        "summary": "Delete train seat by id (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully deleted train seat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "type": "string",
+                      "example": "successfully deleted train seat"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to deleted train seat)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ga/train_seats/list": {
+      "get": {
+        "tags": [
+          "Train seat API"
+        ],
+        "summary": "List all train seat (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully List train seat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Seat"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to list train seat)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ga/trains": {
+      "post": {
+        "tags": [
+          "Train API"
+        ],
+        "summary": "Create new train (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrainRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "successfully create train",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Train"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to create train)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Train API"
+        ],
+        "summary": "get train by id (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully get train",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Train"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "train not found"
+          },
+          "default": {
+            "description": "Unexpected error (failed to get train)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Train API"
+        ],
+        "summary": "Update train (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrainRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "successfully updated train",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Train"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to update train)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Train API"
+        ],
+        "summary": "Delete train by id (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully deleted train",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "type": "string",
+                      "example": "successfully deleted train"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to deleted train)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ga/trains/list": {
+      "get": {
+        "tags": [
+          "Train API"
+        ],
+        "summary": "List all train (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully List train",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Train"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to list train)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ga/train_wagons": {
+      "post": {
+        "tags": [
+          "Train wagon API"
+        ],
+        "summary": "Create new train wagons (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WagonRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "successfully create train wagons",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Wagon"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to create wagon)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Train wagon API"
+        ],
+        "summary": "get train wagon by id (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully get train wagon",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Wagon"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "wagon not found"
+          },
+          "default": {
+            "description": "Unexpected error (failed to get train wagon)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Train wagon API"
+        ],
+        "summary": "Update train (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WagonRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "successfully updated train wagon",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Wagon"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to update train wagon)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Train wagon API"
+        ],
+        "summary": "Delete train by id (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully deleted train",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "type": "string",
+                      "example": "successfully deleted train wagon"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to deleted train)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ga/trains_wagons/list": {
+      "get": {
+        "tags": [
+          "Train wagon API"
+        ],
+        "summary": "List all train wagons (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "in": "query",
+            "name": "train_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "list wagon based train_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully List train wagon",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Wagon"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to list train wagon)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ga/train_discounts": {
+      "post": {
+        "tags": [
+          "Discount API"
+        ],
+        "summary": "Create new discount",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "successfully create discount",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscountCode"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to create discount)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Train wagon API"
+        ],
+        "summary": "get train wagon by id (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully get train wagon",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Wagon"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "wagon not found"
+          },
+          "default": {
+            "description": "Unexpected error (failed to get train wagon)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ga/train_stations": {
+      "post": {
+        "tags": [
+          "Train station API"
+        ],
+        "summary": "Create new train station (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "successfully create train station",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Station"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to create station)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Train wagon API"
+        ],
+        "summary": "Delete train by id (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully deleted train",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "type": "string",
+                      "example": "successfully deleted train wagon"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to deleted train)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ga/train_stations/{code}": {
+      "get": {
+        "tags": [
+          "Train station API"
+        ],
+        "summary": "get train station by code (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "in": "path",
+            "name": "code",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "code parameter to get"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully get train station",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Station"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "Station not found"
+          },
+          "default": {
+            "description": "Unexpected error (failed to get train station)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ga/train_stations/set": {
+      "put": {
+        "tags": [
+          "Train station API"
+        ],
+        "summary": "Update train (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          },
+          {
+            "$ref": "#/components/parameters/ParamsId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "successfully updated train station",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Station"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to update train station)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ga/trains_station/list": {
+      "get": {
+        "tags": [
+          "Train station API"
+        ],
+        "summary": "List all train station (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully List train station",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Station"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to list train station)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ga/trains_station/search": {
+      "get": {
+        "tags": [
+          "Train station API"
+        ],
+        "summary": "get train station by station name (admin or ga only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Auth"
+          },
+          {
+            "$ref": "#/components/parameters/SessionID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successfully get train station",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Station"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "description": "Unexpected error (failed to get train station)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "SessionID": {
+        "in": "cookie",
+        "name": "session_id",
+        "schema": {
+          "type": "string"
+        },
+        "required": true,
+        "description": "Session ID from login or if guest auto create"
+      },
+      "Auth": {
+        "in": "header",
+        "name": "Authorization",
+        "schema": {
+          "type": "string",
+          "example": "token"
+        },
+        "required": true,
+        "description": "Token Authorization"
+      },
+      "ParamsId": {
+        "in": "query",
+        "name": "id",
+        "schema": {
+          "type": "string"
+        },
+        "required": true
+      }
+    },
+    "schemas": {
+      "WebResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Generic response data"
+          },
+          "paging": {
+            "$ref": "#/components/schemas/PageMetaData"
+          },
+          "errors": {
+            "type": "string",
+            "description": "Error message, if any"
+          }
+        }
+      },
+      "PageMetaData": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "total_item": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total_page": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "refresh_token": {
+            "type": "string"
+          },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "email": {
+                "type": "string",
+                "format": "email"
+              },
+              "role": {
+                "type": "string"
+              }
+            }
+          },
+          "access_payload": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "refresh_payload": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "errors": {
+            "type": "string",
+            "description": "Error message"
+          }
+        }
+      },
+      "LoginUserRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "RegisterUserRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 50
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "phone_number": {
+            "type": "string",
+            "maxLength": 50
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "password",
+          "phone_number"
+        ]
+      },
+      "UserResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "phonenumber": {
+                "type": "string"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      },
+      "RegisterAdminRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "phone_number": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "general affair"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "password",
+          "phone_number",
+          "role"
+        ]
+      },
+      "DiscountRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Discount code"
+          },
+          "discount": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Discount percentage"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Expiry date and time"
+          },
+          "max_uses": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Maximum number of uses"
+          }
+        },
+        "required": [
+          "code",
+          "discount",
+          "expires_at",
+          "max_uses"
+        ]
+      },
+      "DiscountResponseRow": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "description": "Discount ID"
+              },
+              "code": {
+                "type": "string",
+                "description": "Discount code"
+              },
+              "discount_percent": {
+                "type": "integer",
+                "format": "int32",
+                "description": "Discount percentage"
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Expiry date and time"
+              },
+              "max_uses": {
+                "type": "integer",
+                "format": "int32",
+                "description": "Maximum number of uses"
+              }
+            }
+          }
+        }
+      },
+      "DiscountCode": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "code": {
+                "type": "string"
+              },
+              "discount_percent": {
+                "type": "number"
+              },
+              "max_uses": {
+                "type": "number"
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      },
+      "Passenger": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              },
+              "id_number": {
+                "type": "string"
+              },
+              "user_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      },
+      "Wagon": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "number"
+              },
+              "train_id": {
+                "type": "number"
+              },
+              "wagon_number": {
+                "type": "number"
+              },
+              "class_type": {
+                "type": "string",
+                "enum": [
+                  "premium",
+                  "economy",
+                  "luxury"
+                ]
+              },
+              "total_seats": {
+                "type": "number"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      },
+      "PassengerRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "id_number": {
+            "type": "string",
+            "maxLength": 36
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "name",
+          "id_number"
+        ]
+      },
+      "PaymentRequest": {
+        "type": "object",
+        "properties": {
+          "reservation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "payment_method": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "reservation_id",
+          "payment_method"
+        ]
+      },
+      "PaymentResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "transaction_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "status": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ReservationRequest": {
+        "type": "object",
+        "properties": {
+          "passenger_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "schedule_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "wagon_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "seat_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "discount_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "user_id",
+          "schedule_id",
+          "wagon_id",
+          "seat_id"
+        ]
+      },
+      "ReservationResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "schedule_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "seat_number": {
+            "type": "string"
+          },
+          "passenger_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "Reservation": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "passenger_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "schedule_id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "wagon_id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "seat_id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "booking_date": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "discount_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "price": {
+                "type": "integer",
+                "format": "int64",
+                "nullable": true
+              },
+              "reservation_status": {
+                "type": "string"
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      },
+      "ListReservationsResponse": {
+        "type": "object",
+        "properties": {
+          "reservation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "passenger_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "passenger_id_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "user_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "user_email": {
+            "type": "string",
+            "nullable": true
+          },
+          "departure_date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "arrival_date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ticket_price": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "train_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "class_type": {
+            "type": "string"
+          },
+          "seat_number": {
+            "type": "string"
+          },
+          "booking_date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reservation_status": {
+            "type": "string"
+          },
+          "source_station": {
+            "type": "string",
+            "nullable": true
+          },
+          "destination_station": {
+            "type": "string",
+            "nullable": true
+          },
+          "discount_code": {
+            "type": "string",
+            "nullable": true
+          },
+          "discount_percent": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "payment_amount": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "payment_method": {
+            "type": "string",
+            "nullable": true
+          },
+          "payment_status": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "Route": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "source_station": {
+                "type": "string"
+              },
+              "destination_station": {
+                "type": "string"
+              },
+              "travel_time": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      },
+      "RouteRequest": {
+        "type": "object",
+        "properties": {
+          "source_station": {
+            "type": "string",
+            "maxLength": 4
+          },
+          "destination_station": {
+            "type": "string",
+            "maxLength": 4
+          },
+          "travel_time": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "required": [
+          "source_station",
+          "destination_station"
+        ]
+      },
+      "ScheduleRequest": {
+        "type": "object",
+        "properties": {
+          "train_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "departure_time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "available_seats": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "price": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "route_id": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "train_id",
+          "departure_time",
+          "available_seats",
+          "price",
+          "route_id"
+        ]
+      },
+      "Schedule": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "train_id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "route_id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "departure_date": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "arrival_date": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "price": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "available_seats": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      },
+      "SearchScheduleRequest": {
+        "type": "object",
+        "properties": {
+          "source_station": {
+            "type": "string"
+          },
+          "destination_station": {
+            "type": "string"
+          },
+          "departure_date": {
+            "type": "string",
+            "format": "date",
+            "description": "departure_date shouldn't be in the past"
+          }
+        },
+        "required": [
+          "source_station",
+          "destination_station",
+          "departure_date"
+        ]
+      },
+      "SearchScheduleResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "schedule_id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "train_name": {
+                "type": "string"
+              },
+              "source_station": {
+                "type": "string"
+              },
+              "destination_station": {
+                "type": "string"
+              },
+              "departure_date": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "arrival_date": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "available_seats": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "price": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          }
+        }
+      },
+      "SeatRequest": {
+        "type": "object",
+        "properties": {
+          "wagon_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "seat_number": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "seat_row": {
+            "type": "string",
+            "maxLength": 1
+          },
+          "is_available": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "wagon_id",
+          "seat_number",
+          "seat_row"
+        ]
+      },
+      "Seat": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "wagon_id": {
+                "type": "integer",
+                "format": "int64",
+                "nullable": true
+              },
+              "seat_number": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "seat_row": {
+                "type": "string"
+              },
+              "is_available": {
+                "type": "boolean",
+                "nullable": true
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique session identifier"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Associated user UUID"
+          },
+          "refresh_token": {
+            "type": "string",
+            "description": "Refresh token for the session"
+          },
+          "role": {
+            "type": "string",
+            "description": "User role for the session"
+          },
+          "user_agent": {
+            "type": "string",
+            "description": "User agent string"
+          },
+          "client_ip": {
+            "type": "string",
+            "description": "Client IP address"
+          },
+          "is_blocked": {
+            "type": "boolean",
+            "description": "Whether the session is blocked"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Expiration time of the session"
+          }
+        },
+        "required": [
+          "id",
+          "refresh_token",
+          "role",
+          "user_agent",
+          "client_ip",
+          "is_blocked",
+          "expires_at"
+        ]
+      },
+      "StationRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 4
+          },
+          "station_name": {
+            "type": "string",
+            "maxLength": 50
+          }
+        },
+        "required": [
+          "code",
+          "station_name"
+        ]
+      },
+      "Station": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "code": {
+                "type": "string"
+              },
+              "station_name": {
+                "type": "string"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updated_ad": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      },
+      "TrainRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "capacity": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "name",
+          "capacity"
+        ]
+      },
+      "Train": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "name": {
+                "type": "string"
+              },
+              "capacity": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      },
+      "WagonRequest": {
+        "type": "object",
+        "properties": {
+          "train_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "wagon_number": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "class_type": {
+            "type": "string"
+          },
+          "total_seats": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "required": [
+          "train_id",
+          "wagon_number",
+          "class_type",
+          "total_seats"
+        ]
+      },
+      "BadRequestError": {
+        "description": "RFC 7807 (https://datatracker.ietf.org/doc/html/rfc7807)",
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": [
+              "Bad Request"
+            ]
+          },
+          "status": {
+            "type": "integer",
+            "format": "int64",
+            "example": [
+              400
+            ]
+          },
+          "detail": {
+            "type": "string",
+            "example": [
+              "The request was invalid."
+            ]
+          }
+        }
+      },
+      "ForbiddenError": {
+        "description": "RFC 7807 (https://datatracker.ietf.org/doc/html/rfc7807)",
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": [
+              "Forbidden"
+            ]
+          },
+          "status": {
+            "type": "integer",
+            "format": "int64",
+            "example": [
+              403
+            ]
+          },
+          "detail": {
+            "type": "string",
+            "example": [
+              "You are not authorized to access this resource."
+            ]
+          }
+        }
+      },
+      "NotFoundError": {
+        "description": "RFC 7807 (https://datatracker.ietf.org/doc/html/rfc7807)",
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": [
+              "Not Found"
+            ]
+          },
+          "status": {
+            "type": "integer",
+            "format": "int64",
+            "example": [
+              404
+            ]
+          },
+          "detail": {
+            "type": "string",
+            "example": [
+              "The resource you are trying to access does not exist."
+            ]
+          }
+        }
+      },
+      "UnauthorizedError": {
+        "description": "RFC 7807 (https://datatracker.ietf.org/doc/html/rfc7807)",
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": [
+              "Unauthorized"
+            ]
+          },
+          "status": {
+            "type": "integer",
+            "format": "int64",
+            "example": [
+              401
+            ]
+          },
+          "detail": {
+            "type": "string",
+            "example": [
+              "You are not authorized to access this resource."
+            ]
+          }
+        }
+      },
+      "Conflict": {
+        "description": "RFC 7807 (https://datatracker.ietf.org/doc/html/rfc7807)",
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": [
+              "Conflict"
+            ]
+          },
+          "status": {
+            "type": "integer",
+            "format": "int64",
+            "example": [
+              409
+            ]
+          },
+          "detail": {
+            "type": "string",
+            "example": [
+              "The resource you are trying to access is in conflict."
+            ]
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/BadRequestError"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ForbiddenError"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "NotFound",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/NotFoundError"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/UnauthorizedError"
+            }
+          },
+          "application/xml": {
+            "schema": {
+              "$ref": "#/components/schemas/UnauthorizedError"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Conflict"
+            }
+          },
+          "application/xml": {
+            "schema": {
+              "$ref": "#/components/schemas/Conflict"
+            }
+          }
+        }
+      }
+    }
+  }
+}

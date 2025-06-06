@@ -2,26 +2,33 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 )
 
 type ReservationRepository interface {
-	LockSeat(ctx context.Context, scheduleID, wagonID, seatID int64, duration time.Duration) (bool, error)
+	LockSeat(ctx context.Context, scheduleID, wagonID, seatID int64, duration time.Duration) error
 	UnlockSeat(ctx context.Context, scheduleID, wagonID, seatID int64) error
 }
 
-func (r *redisRepository) LockSeat(ctx context.Context, scheduleID, wagonID, seatID int64, duration time.Duration) (bool, error) {
-	holdKey := fmt.Sprintf("seat_lock:%d:%d:%d", scheduleID, wagonID, seatID)
-	success, err := r.RedisClient.SetNX(ctx, holdKey, "locked", duration).Result()
+const seatLock = "seat_lock:%d:%d:%d"
+
+func (r *redisRepository) LockSeat(ctx context.Context, scheduleID, wagonID, seatID int64, duration time.Duration) error {
+	holdKey := fmt.Sprintf(seatLock, scheduleID, wagonID, seatID)
+	exists, err := r.RedisClient.Exists(ctx, holdKey).Result()
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	return success, nil
+	if exists > 0 {
+		return errors.New("seat already locked")
+	}
+
+	return r.RedisClient.Set(ctx, holdKey, "locked", duration).Err()
 }
 
 func (r *redisRepository) UnlockSeat(ctx context.Context, scheduleID, wagonID, seatID int64) error {
-	holdKey := fmt.Sprintf("seat_lock:%d:%d:%d", scheduleID, wagonID, seatID)
+	holdKey := fmt.Sprintf(seatLock, scheduleID, wagonID, seatID)
 	return r.RedisClient.Del(ctx, holdKey).Err()
 }

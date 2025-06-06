@@ -10,8 +10,8 @@ import (
 )
 
 const createWagon = `-- name: CreateWagon :one
-INSERT INTO wagons (train_id, wagon_number, class_type, total_seats)
-VALUES ($1, $2, $3, $4)
+INSERT INTO wagons (train_id, wagon_number, class_type, total_seats, created_at)
+VALUES ($1, $2, $3, $4, now())
 RETURNING id, train_id, wagon_number, class_type, total_seats, created_at, updated_at
 `
 
@@ -40,6 +40,18 @@ func (q *Queries) CreateWagon(ctx context.Context, arg CreateWagonParams) (Wagon
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const decreaseWagonSeat = `-- name: DecreaseWagonSeat :exec
+UPDATE wagons
+SET total_seats = total_seats - 1,
+updated_at = NOW()
+WHERE id = $1 AND total_seats > 0
+`
+
+func (q *Queries) DecreaseWagonSeat(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, decreaseWagonSeat, id)
+	return err
 }
 
 const deleteWagon = `-- name: DeleteWagon :exec
@@ -74,11 +86,12 @@ func (q *Queries) GetWagon(ctx context.Context, id int64) (Wagon, error) {
 
 const listWagons = `-- name: ListWagons :many
 SELECT id, train_id, wagon_number, class_type, total_seats, created_at, updated_at FROM wagons
+WHERE train_id = $1
 ORDER BY id
 `
 
-func (q *Queries) ListWagons(ctx context.Context) ([]Wagon, error) {
-	rows, err := q.db.Query(ctx, listWagons)
+func (q *Queries) ListWagons(ctx context.Context, trainID int64) ([]Wagon, error) {
+	rows, err := q.db.Query(ctx, listWagons, trainID)
 	if err != nil {
 		return nil, err
 	}

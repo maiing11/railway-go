@@ -14,8 +14,8 @@ import (
 
 const completePayment = `-- name: CompletePayment :exec
 UPDATE payments
-  set status = 'success', payment_date = NOW()
-WHERE id = $1 AND status = 'pending'
+  set payment_status = 'success', payment_date = NOW()
+WHERE id = $1 AND payment_status = 'pending'
 `
 
 func (q *Queries) CompletePayment(ctx context.Context, id uuid.UUID) error {
@@ -23,13 +23,12 @@ func (q *Queries) CompletePayment(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-const createPayment = `-- name: CreatePayment :one
+const createPayment = `-- name: CreatePayment :exec
 INSERT INTO payments (
-    reservation_id, payment_method, amount, transaction_id, payment_date, gateway_response, status
+    reservation_id, payment_method, amount, transaction_id, payment_date, gateway_response, payment_status
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7
 )
-RETURNING id, reservation_id, payment_method, amount, transaction_id, payment_date, gateway_response, status, created_at, updated_at
 `
 
 type CreatePaymentParams struct {
@@ -39,33 +38,20 @@ type CreatePaymentParams struct {
 	TransactionID   string           `db:"transaction_id" json:"transaction_id"`
 	PaymentDate     pgtype.Timestamp `db:"payment_date" json:"payment_date"`
 	GatewayResponse *string          `db:"gateway_response" json:"gateway_response"`
-	Status          string           `db:"status" json:"status"`
+	PaymentStatus   string           `db:"payment_status" json:"payment_status"`
 }
 
-func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (Payment, error) {
-	row := q.db.QueryRow(ctx, createPayment,
+func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) error {
+	_, err := q.db.Exec(ctx, createPayment,
 		arg.ReservationID,
 		arg.PaymentMethod,
 		arg.Amount,
 		arg.TransactionID,
 		arg.PaymentDate,
 		arg.GatewayResponse,
-		arg.Status,
+		arg.PaymentStatus,
 	)
-	var i Payment
-	err := row.Scan(
-		&i.ID,
-		&i.ReservationID,
-		&i.PaymentMethod,
-		&i.Amount,
-		&i.TransactionID,
-		&i.PaymentDate,
-		&i.GatewayResponse,
-		&i.Status,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
+	return err
 }
 
 const deletePayment = `-- name: DeletePayment :exec
@@ -80,8 +66,8 @@ func (q *Queries) DeletePayment(ctx context.Context, id uuid.UUID) error {
 
 const failPayment = `-- name: FailPayment :exec
 UPDATE payments
-  set status = 'failed', payment_date = NOW()
-WHERE id = $1 AND status = 'pending'
+  set payment_status = 'failed', payment_date = NOW()
+WHERE id = $1 AND payment_status = 'pending'
 `
 
 func (q *Queries) FailPayment(ctx context.Context, id uuid.UUID) error {
@@ -89,8 +75,33 @@ func (q *Queries) FailPayment(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const getExpiredPayments = `-- name: GetExpiredPayments :many
+SELECT reservation_id FROM payments
+WHERE payment_status = 'pending' AND creaate_at < NOW() - INTERVAL '15 minutes'
+`
+
+func (q *Queries) GetExpiredPayments(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, getExpiredPayments)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var reservation_id uuid.UUID
+		if err := rows.Scan(&reservation_id); err != nil {
+			return nil, err
+		}
+		items = append(items, reservation_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getPayment = `-- name: GetPayment :one
-SELECT id, reservation_id, payment_method, amount, transaction_id, payment_date, gateway_response, status, created_at, updated_at FROM  payments
+SELECT id, reservation_id, payment_method, amount, transaction_id, payment_date, gateway_response, payment_status, created_at, updated_at FROM  payments
 WHERE id = $1 LIMIT 1
 `
 
@@ -105,7 +116,7 @@ func (q *Queries) GetPayment(ctx context.Context, id uuid.UUID) (Payment, error)
 		&i.TransactionID,
 		&i.PaymentDate,
 		&i.GatewayResponse,
-		&i.Status,
+		&i.PaymentStatus,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -113,7 +124,7 @@ func (q *Queries) GetPayment(ctx context.Context, id uuid.UUID) (Payment, error)
 }
 
 const listPayments = `-- name: ListPayments :many
-SELECT id, reservation_id, payment_method, amount, transaction_id, payment_date, gateway_response, status, created_at, updated_at FROM payments
+SELECT id, reservation_id, payment_method, amount, transaction_id, payment_date, gateway_response, payment_status, created_at, updated_at FROM payments
 ORDER BY id
 `
 
@@ -134,7 +145,7 @@ func (q *Queries) ListPayments(ctx context.Context) ([]Payment, error) {
 			&i.TransactionID,
 			&i.PaymentDate,
 			&i.GatewayResponse,
-			&i.Status,
+			&i.PaymentStatus,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -156,7 +167,7 @@ UPDATE payments
   transaction_id = $5,
   payment_date = $6,
   gateway_response = $7,
-  status = $8
+  payment_status = $8
 WHERE id = $1
 `
 
@@ -168,7 +179,7 @@ type UpdatePaymentParams struct {
 	TransactionID   string           `db:"transaction_id" json:"transaction_id"`
 	PaymentDate     pgtype.Timestamp `db:"payment_date" json:"payment_date"`
 	GatewayResponse *string          `db:"gateway_response" json:"gateway_response"`
-	Status          string           `db:"status" json:"status"`
+	PaymentStatus   string           `db:"payment_status" json:"payment_status"`
 }
 
 func (q *Queries) UpdatePayment(ctx context.Context, arg UpdatePaymentParams) error {
@@ -180,7 +191,7 @@ func (q *Queries) UpdatePayment(ctx context.Context, arg UpdatePaymentParams) er
 		arg.TransactionID,
 		arg.PaymentDate,
 		arg.GatewayResponse,
-		arg.Status,
+		arg.PaymentStatus,
 	)
 	return err
 }

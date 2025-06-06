@@ -10,17 +10,10 @@ tasks:
     cmds:
       - gofmt -w .
     silent: true
-  postgres:
-    cmds:
-      - docker run --name postgres -p 5432\:5432 -e POSTGRES_USER={{.USER}} -e POSTGRES_PASSWORD={{.PASSWORD}} -d postgres\:alpine
-    silent: true
-  dockerstart:
-    cmds:
-      - sudo systemctl start docker
-      - docker start postgres
+  
   migrateup:
     cmds:
-      - migrate -path db/migration/ -database "{{.DB_SOURCE}}" -verbose up
+      - docker run --rm -v $(pwd)/db/migration:/migrations --network host migrate/migrate -path=/migrations -database "{{.DB_SOURCE}}" -verbose up 
 
   migratedown:
     cmds:
@@ -38,6 +31,10 @@ tasks:
     cmds:
       - docker exec -it postgres createdb --username={{.USER}} railway_tiket
 
-  dropdb:
+  start:
     cmds:
-      - docker exec -it postgres dropdb --username={{.USER}} railway_tiket
+      - docker compose -f docker-compose.yml up --build -d
+  
+  stop:
+    cmds:
+      - docker compose -f docker-compose.yml down

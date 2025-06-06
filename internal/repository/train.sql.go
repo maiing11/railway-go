@@ -11,9 +11,9 @@ import (
 
 const createTrain = `-- name: CreateTrain :one
 INSERT INTO trains (
-   name, capacity
+   name, capacity, created_at
 ) VALUES (
-    $1, $2
+    $1, $2, now()
 )
 RETURNING id, name, capacity, created_at, updated_at
 `
@@ -98,7 +98,8 @@ func (q *Queries) ListTrains(ctx context.Context) ([]Train, error) {
 const updateTrain = `-- name: UpdateTrain :exec
 UPDATE trains
   set name = $2,
-  capacity = $3
+  capacity = $3,
+  updated_at = NOW()
 WHERE id = $1
 `
 

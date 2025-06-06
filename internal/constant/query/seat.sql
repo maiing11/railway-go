@@ -9,7 +9,8 @@ WHERE id = $1 LIMIT 1;
 
 -- name: ListSeats :many
 SELECT * FROM seats
-ORDER BY id;
+WHERE wagon_id = $1
+ORDER BY seat_number, seat_row;
 
 -- name: UpdateSeat :exec
 UPDATE seats
