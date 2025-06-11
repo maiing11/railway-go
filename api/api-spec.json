@@ -53,7 +53,7 @@
         }
       }
     },
-    "/uses/register/_admin": {
+    "/users/register/_admin": {
       "post": {
         "tags": [
           "User API"
