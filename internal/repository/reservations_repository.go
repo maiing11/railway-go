@@ -25,7 +25,7 @@ func (r *redisRepository) LockSeat(ctx context.Context, scheduleID, wagonID, sea
 		return errors.New("seat already locked")
 	}
 
-	return r.RedisClient.Set(ctx, holdKey, "locked", duration).Err()
+	return r.RedisClient.SetNX(ctx, holdKey, "locked", duration).Err()
 }
 
 func (r *redisRepository) UnlockSeat(ctx context.Context, scheduleID, wagonID, seatID int64) error {
